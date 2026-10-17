@@ -19,7 +19,7 @@ export interface PlaybookStep {
   option_id: string;
   action: string; // command text from the catalog
   why: string;
-  check_after?: string;
+  check_after?: string | undefined;
 }
 export interface Playbook {
   id: string;
@@ -227,15 +227,17 @@ export function applyPlaybooks<T extends { command: string }>(
     const neverSet = new Set(pb.never_do);
     pb.steps.forEach((step, i) => {
       const opt = catalog.find((o) => o.id === step.option_id || normalize(o.action) === normalize(step.action));
-      const why = (msg: string) => influence.conflicts.push(`Conflict: "${pb.title}" step ${i + 1} (${step.action}) skipped — ${msg}.`);
-      if (!opt) return why("the command is not in the command catalog");
+      const why = (msg: string): void => { influence.conflicts.push(`Conflict: "${pb.title}" step ${i + 1} (${step.action}) skipped — ${msg}.`); };
+      if (!opt) { why("the command is not in the command catalog"); return; }
       const v = validateCommand(opt.action);
-      if (!v.ok) return why(v.reason);
+      if (!v.ok) { why(v.reason); return; }
       for (const r of opt.requires ?? [])
-        if (!executedIds.has(r)) return why(`its prerequisite ${r} has not been executed yet`);
-      if (opt.requiresAny && !opt.requiresAny.some((r) => executedIds.has(r)))
-        return why(`none of its prerequisites (${opt.requiresAny.join(", ")}) has been executed yet`);
-      if (neverSet.has(opt.id)) return why("the same playbook lists it under never_do");
+        if (!executedIds.has(r)) { why(`its prerequisite ${r} has not been executed yet`); return; }
+      if (opt.requiresAny && !opt.requiresAny.some((r) => executedIds.has(r))) {
+        why(`none of its prerequisites (${opt.requiresAny.join(", ")}) has been executed yet`);
+        return;
+      }
+      if (neverSet.has(opt.id)) { why("the same playbook lists it under never_do"); return; }
       if (pb.id === followed.id && !validSteps.has(normalize(opt.action)))
         validSteps.set(normalize(opt.action), { step, num: i + 1, pb });
     });

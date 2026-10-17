@@ -12,3 +12,4 @@
 - Backend access goes through adapter interfaces in src/adapters/types.ts; core pipeline (src/core) never imports concrete adapters — keeps backends swappable.
 - The assistant panel talks to the host only via HostBridge (getSessionContext, sendCommand) — keeps it a detachable plugin.
 - The simulated NonStop environment lives in src/mock-env (scenario data + server-only allowlist.server.ts) and is served via src/lib/mock-env.functions.ts; every command-handling function calls validateCommand() and risk tiers come only from the allowlist, never the model — keeps policy authoritative and server-side.
+- AI calls go through the single callModel() in src/assistant/model.server.ts (swap provider there); src/assistant/assistant.server.ts enforces schema (1 retry), allowlist, known source IDs and risk tier in code; served by src/lib/assistant.functions.ts.

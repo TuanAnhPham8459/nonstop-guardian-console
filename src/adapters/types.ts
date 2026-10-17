@@ -30,6 +30,7 @@ export interface EnvironmentAdapter {
 }
 
 export interface KnowledgeHit {
+  id: string;
   title: string;
   snippet: string;
 }
@@ -39,13 +40,28 @@ export interface KnowledgeAdapter {
 
 export interface ModelRequest {
   question: string;
-  context: string;
-  knowledge: KnowledgeHit[];
+  state: unknown;
 }
-export interface ModelResponse {
-  text: string;
-  proposedCommand?: string;
+export interface CheckedCommand {
+  command: string;
+  reason: string;
+  sources: string[];
+  unknown_sources: string[];
+  confidence: number;
+  risk: "read-only" | "low-risk" | "high-risk";
+  description: string;
+  blast_radius: string | null;
 }
+export type ModelResponse =
+  | {
+      ok: true;
+      explanation: string;
+      proposed_commands: CheckedCommand[];
+      blocked: { command: string; reason: string }[];
+      uncertainty: string;
+    }
+  | { ok: false; error: string };
+// Backed by the server "assistant" function (allowlist, sources and risk enforced there).
 export interface ModelAdapter {
   complete(req: ModelRequest): Promise<ModelResponse>;
 }

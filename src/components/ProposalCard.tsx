@@ -70,6 +70,15 @@ export function ProposalCard({ cmd, state, disabled, onApprove, onReject, onEdit
       <div className="mb-1 text-xs text-muted-foreground">{cmd.description}</div>
       <div className="mb-2 text-sm">{cmd.reason}</div>
 
+      {cmd.playbook && (
+        <div className="mb-2 font-mono text-[10px] text-primary">
+          ▤ Playbook "{cmd.playbook.title}" v{cmd.playbook.version} · step {cmd.playbook.step} · by {cmd.playbook.author} · approved by {cmd.playbook.approver}
+        </div>
+      )}
+      {cmd.never_do && (
+        <div className="blast mb-2"><span className="font-semibold">⚠ never_do: </span>{cmd.never_do}</div>
+      )}
+
       <div className="mb-2 flex flex-wrap items-center gap-1.5 font-mono text-[10px]">
         <span className="text-muted-foreground">confidence</span>
         <span className="conf-bar"><span style={{ width: `${Math.round(cmd.confidence * 100)}%` }} /></span>

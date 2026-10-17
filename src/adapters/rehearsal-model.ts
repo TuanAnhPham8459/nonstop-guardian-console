@@ -9,7 +9,7 @@ const KEY = "ops-rehearsal-cache-v1";
 const MODE_KEY = "ops-rehearsal-mode";
 
 const SEEDS: Record<string, { proactive: Seed; ask: Seed }> = {
-  "payment-slowdown": {
+  "cpu-failure": {
     proactive: {
       explanation: "CPU 3 is down and CPUs 4-7 are running near 90% busy. Payment response time is climbing, and 3 processes are running without backup. Confirm process state and TMF health before changing anything.",
       commands: [
@@ -28,7 +28,7 @@ const SEEDS: Record<string, { proactive: Seed; ask: Seed }> = {
       uncertainty: "Restoring the CPU only helps if the hardware repair is done; I can't see hardware health from here.",
     },
   },
-  "disk-degradation": {
+  "disk-degraded": {
     proactive: {
       explanation: "$DATA02 is running on its mirror only and its queue is growing. Card ledger writes are slowing. CPUs are all up, so look at disk and path first.",
       commands: [
@@ -78,7 +78,7 @@ const read = (): Cache => { try { return JSON.parse(localStorage.getItem(KEY) ??
 const words = (t: string) => new Set(t.toLowerCase().match(/[a-z0-9$]{3,}/g) ?? []);
 
 function bucket(req: ModelRequest) {
-  const sc = (req.state as { state?: { scenario?: { id?: string } } })?.state?.scenario?.id ?? "payment-slowdown";
+  const sc = (req.state as { state?: { scenario?: { id?: string } } })?.state?.scenario?.id ?? "cpu-failure";
   const kind = req.kind ?? "ask";
   return { sc, key: `${sc}|${kind}${kind === "interpret" ? `|${req.command ?? ""}` : ""}` };
 }
@@ -100,7 +100,7 @@ export function createRehearsalModel(live: ModelAdapter, policy: PolicyAdapter):
     }
     let seed: Seed | null = null;
     if (!hit) {
-      const s = SEEDS[sc] ?? SEEDS["payment-slowdown"]!;
+      const s = SEEDS[sc] ?? SEEDS["cpu-failure"]!;
       seed = req.kind === "proactive" ? s.proactive : req.kind === "interpret" ? interpretSeed(req.command ?? "", req.question.split("\n").slice(1).join("\n")) : s.ask;
     }
     const base = hit?.res ?? { explanation: seed!.explanation, uncertainty: seed!.uncertainty, proposed_commands: [], blocked: [] };

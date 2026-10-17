@@ -18,6 +18,8 @@ export interface SystemState {
     firstAlertAt: number;
     alerts: { time: string; source: string; text: string; level: "crit" | "warn" | "info" }[];
   };
+  clock?: string; // scenario clock "HH:MM", advanced by "Advance 15 min"
+  endState?: { id: string; label: string } | null;
 }
 
 export interface CommandResult {
@@ -32,6 +34,7 @@ export interface EnvironmentAdapter {
   getState(): Promise<SystemState>;
   reset(scenario?: string): Promise<void>;
   listScenarios(): Promise<{ id: string; label: string; title: string }[]>;
+  advanceTime(): Promise<{ clock: string; messages: string[] }>;
 }
 
 export interface KnowledgeHit {

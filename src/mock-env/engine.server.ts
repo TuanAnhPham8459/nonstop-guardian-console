@@ -19,6 +19,9 @@ function fresh(id: string): EnvState {
 
 export function resetScenario(id = "payment-slowdown") {
   s = fresh(id);
+  timing = false;
+  statistics = false;
+  spooling = null;
 }
 
 function responseMs() {

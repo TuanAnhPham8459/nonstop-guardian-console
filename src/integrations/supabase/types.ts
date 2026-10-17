@@ -14,7 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      knowledge_notes: {
+        Row: {
+          cause: string
+          contributed_by: string
+          created_at: string
+          id: string
+          source_type: string
+          symptoms: string
+          title: string
+          what_to_check_first: string
+        }
+        Insert: {
+          cause?: string
+          contributed_by?: string
+          created_at?: string
+          id?: string
+          source_type: string
+          symptoms?: string
+          title: string
+          what_to_check_first?: string
+        }
+        Update: {
+          cause?: string
+          contributed_by?: string
+          created_at?: string
+          id?: string
+          source_type?: string
+          symptoms?: string
+          title?: string
+          what_to_check_first?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

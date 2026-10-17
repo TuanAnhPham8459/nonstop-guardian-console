@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { callModel, ModelCallError } from "./model.server";
-import { validateCommand } from "@/mock-env/validate.server";
+import { validateCommand, normalize } from "@/mock-env/validate.server";
 import { ALLOWLIST } from "@/mock-env/allowlist.server";
 import type { KnowledgeNote } from "@/knowledge/notes.server";
 import { applyPlaybooks, type Playbook } from "@/playbooks/playbooks.server";
@@ -119,10 +119,8 @@ export function enforce(out: ModelOutput, knownIds: Set<string>, pb?: PlaybookCo
   // rank never_do last with a warning. Risk tiers and requires rules are untouched.
   const { commands, influence } = applyPlaybooks(proposed, pb.playbooks, pb.catalog, pb.executedIds);
   const annotated = commands.map((c) => {
-    const prov = influence?.provenance[Object.keys(influence.provenance).find((k) => k === c.command.toUpperCase()) ?? ""] ??
-      influence?.provenance[c.command];
-    const nd = influence?.never_do_warnings[c.command] ??
-      influence?.never_do_warnings[Object.keys(influence.never_do_warnings).find((k) => k === c.command.toUpperCase()) ?? ""];
+    const prov = influence?.provenance[normalize(c.command)];
+    const nd = influence?.never_do_warnings[normalize(c.command)];
     return { ...c, ...(prov ? { playbook: prov } : {}), ...(nd ? { never_do: nd } : {}) };
   });
   return {

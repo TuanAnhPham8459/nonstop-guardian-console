@@ -1,4 +1,4 @@
-import type { AuditAdapter, KnowledgeAdapter, ModelAdapter, ModelResponse } from "@/adapters/types";
+import type { AuditAdapter, Classification, KnowledgeAdapter, ModelAdapter, ModelResponse, PolicyAdapter } from "@/adapters/types";
 
 // The plugin <-> host contract. The panel sees nothing else of the host.
 export interface SessionContext {
@@ -14,12 +14,13 @@ export interface Adapters {
   knowledge: KnowledgeAdapter;
   model: ModelAdapter;
   audit: AuditAdapter;
+  policy: PolicyAdapter;
 }
 
 // Core pipeline: talks to backends only via adapter interfaces.
 export function createPipeline(a: Adapters) {
   return {
-    async ask(question: string, host: HostBridge): Promise<ModelResponse> {
+    async ask(question: string, host: HostBridge): Promise<ModelResponse & { classification?: Classification }> {
       a.audit.log({ actor: "operator", action: "question", detail: question });
       const ctx = host.getSessionContext();
       const knowledge = await a.knowledge.search(question);
@@ -29,7 +30,14 @@ export function createPipeline(a: Adapters) {
         knowledge,
       });
       a.audit.log({ actor: "assistant", action: "response", detail: res.proposedCommand ?? "" });
-      return res;
+      if (!res.proposedCommand) return res;
+      // Risk tier is looked up server-side; anything the model says about risk is ignored.
+      const classification = await a.policy.classify(res.proposedCommand);
+      if (!classification.allowed) {
+        a.audit.log({ actor: "system", action: "blocked", detail: `${res.proposedCommand}: ${classification.reason}` });
+        return { text: `${res.text}\n\nProposed command blocked: ${classification.reason}` };
+      }
+      return { ...res, classification };
     },
     async approveAndRun(cmd: string, host: HostBridge): Promise<{ output: string[]; interpretation: string }> {
       a.audit.log({ actor: "operator", action: "approved", detail: cmd });

@@ -60,3 +60,11 @@ export interface AuditAdapter {
   log(event: Omit<AuditEvent, "at">): void;
   entries(): AuditEvent[];
 }
+
+export type Classification =
+  | { allowed: false; reason: string }
+  | { allowed: true; risk: "read-only" | "low-risk" | "high-risk"; description: string; blastRadius: string | null };
+// Server-side allowlist lookup. Risk tier comes from here, never from the ModelAdapter.
+export interface PolicyAdapter {
+  classify(cmd: string): Promise<Classification>;
+}

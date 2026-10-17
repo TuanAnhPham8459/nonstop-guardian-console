@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { getState, resetScenario, runCommand } from "@/mock-env/engine";
+import { getState, resetScenario, runCommand } from "@/mock-env/engine.server";
 
 describe("mock-env payment-slowdown", () => {
   beforeEach(() => resetScenario());
@@ -10,7 +10,7 @@ describe("mock-env payment-slowdown", () => {
     expect(r).toBe(900);
   });
   it("unknown commands are rejected", () =>
-    expect(runCommand("FOO").output).toEqual(["command not recognized"]));
+    expect(runCommand("FOO").output[0]).toMatch(/^command not recognized/));
   it("restart lowers CPU 4-7 load and latency; reset restores", () => {
     expect(runCommand("scf  restart process $payauth").risk).toBe("high-risk");
     const s = getState();

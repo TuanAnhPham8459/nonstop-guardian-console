@@ -6,7 +6,9 @@ import { ProposalCard, type ProposalState } from "./ProposalCard";
 import { createPipeline, type HostBridge } from "@/core/pipeline";
 import { dbAudit, serverKnowledge, serverModel } from "@/adapters/mock-services";
 
-const pipeline = createPipeline({ knowledge: serverKnowledge, model: serverModel, audit: dbAudit, policy: serverPolicy });
+import { createRehearsalModel, rehearsal } from "@/adapters/rehearsal-model";
+
+const pipeline = createPipeline({ knowledge: serverKnowledge, model: createRehearsalModel(serverModel, serverPolicy), audit: dbAudit, policy: serverPolicy });
 
 type Msg =
   | { role: "op" | "ai" | "err"; text: string }
@@ -31,6 +33,16 @@ export function AssistantPanel({ host, onClose }: { host: HostBridge; onClose: (
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [debriefOpen, setDebriefOpen] = useState(false);
+  const [rehearsalOn, setRehearsalOn] = useState(false);
+  useEffect(() => setRehearsalOn(rehearsal.enabled), []);
+  function toggleRehearsal() {
+    const on = !rehearsalOn;
+    rehearsal.set(on);
+    setRehearsalOn(on);
+    setMsgs((m) => [...m, { role: "ai", text: on
+      ? `Rehearsal mode ON — replaying cached replies (${rehearsal.cachedCount()} saved) or scripted ones. No AI calls are made. Risk tiers still come from the allowlist.`
+      : "Rehearsal mode OFF — live AI replies." }]);
+  }
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => { end.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
 
@@ -92,7 +104,15 @@ export function AssistantPanel({ host, onClose }: { host: HostBridge; onClose: (
           <div className="text-sm font-semibold">Ops Assistant</div>
           <div className="font-mono text-[10px] text-muted-foreground">plugin · bridge: getSessionContext / sendCommand</div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={toggleRehearsal}
+            aria-pressed={rehearsalOn}
+            title="Replay cached assistant replies if the network or AI is unavailable"
+            className={`btn-ghost font-mono text-[11px] ${rehearsalOn ? "border-warn text-warn" : ""}`}
+          >
+            Rehearsal: {rehearsalOn ? "ON" : "OFF"}
+          </button>
           <button onClick={() => setDebriefOpen(true)} className="btn-ghost">Debrief</button>
           <button onClick={onClose} className="btn-ghost" aria-label="Close assistant">✕</button>
         </div>

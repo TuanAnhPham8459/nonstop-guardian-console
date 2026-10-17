@@ -4,6 +4,7 @@ export type CpuStatus = "ok" | "warn" | "crit" | "down";
 
 export interface SystemState {
   node: string;
+  scenario?: { id: string; label: string; opener: string };
   cpus: { id: number; busy: number; status: CpuStatus }[];
   tps: number;
   responseMs: number;
@@ -26,7 +27,8 @@ export interface CommandResult {
 export interface EnvironmentAdapter {
   runCommand(cmd: string): Promise<CommandResult>;
   getState(): Promise<SystemState>;
-  reset(): Promise<void>;
+  reset(scenario?: string): Promise<void>;
+  listScenarios(): Promise<{ id: string; label: string; title: string }[]>;
 }
 
 export interface KnowledgeHit {
@@ -42,6 +44,8 @@ export interface KnowledgeAdapter {
 
 export interface ModelRequest {
   question: string;
+  kind?: "ask" | "proactive" | "interpret";
+  command?: string;
   state: unknown;
 }
 export interface CheckedCommand {

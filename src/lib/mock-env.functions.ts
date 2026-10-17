@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { getState, resetScenario, runCommand, commandHelp } from "@/mock-env/engine.server";
+import { getState, resetScenario, runCommand, commandHelp, listScenarios } from "@/mock-env/engine.server";
 import { validateCommand } from "@/mock-env/validate.server";
 
 // "mock-env" backend: simulated NonStop environment. No real system access.
@@ -37,3 +37,5 @@ export const mockEnvReset = createServerFn({ method: "POST" })
     resetScenario(data.scenario);
     return { ok: true };
   });
+
+export const mockEnvScenarios = createServerFn({ method: "GET" }).handler(async () => listScenarios());

@@ -26,15 +26,28 @@ function AuditPage() {
   const [filter, setFilter] = useState("all");
   const [open, setOpen] = useState<string | null>(null);
   const types = ["all", ...Array.from(new Set(initial.map((r) => r.event_type)))];
-  const shown = filter === "all" ? rows : rows.filter((r) => r.event_type === filter);
+  const [q, setQ] = useState("");
+  const needle = q.trim().toLowerCase();
+  const shown = rows.filter((r) =>
+    (filter === "all" || r.event_type === filter) &&
+    (!needle || [r.session_id, r.actor, r.event_type, r.question, r.command, r.risk, r.output, r.interpretation, r.detail]
+      .some((v) => v?.toLowerCase().includes(needle))));
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       <SimBanner />
       <div className="mx-auto max-w-6xl p-4">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <h1 className="text-xl font-semibold">Audit log</h1>
+          <h1 className="text-xl font-semibold">Audit log <span className="font-mono text-xs text-muted-foreground">{shown.length} / {rows.length}</span></h1>
           <div className="flex flex-wrap gap-2">
+            <input
+              type="search"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search questions, commands, output…"
+              aria-label="Search audit log"
+              className="field w-72 font-mono text-xs"
+            />
             <select value={filter} onChange={(e) => setFilter(e.target.value)} className="field font-mono text-xs" aria-label="Filter by event">
               {types.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
@@ -42,7 +55,7 @@ function AuditPage() {
           </div>
         </div>
         {shown.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No audit entries yet. Use the assistant on the Host Terminal page.</p>
+          <p className="text-sm text-muted-foreground">{rows.length ? "No entries match your search." : "No audit entries yet. Use the assistant on the Host Terminal page."}</p>
         ) : (
           <div className="overflow-x-auto rounded border border-border">
             <table className="w-full font-mono text-[11px]">

@@ -79,11 +79,16 @@ function KnowledgePage() {
               <article key={x.id} className="tile">
                 <div className="mb-1 flex items-center justify-between gap-2 font-mono text-[10px]">
                   <span className="text-primary">{x.id}</span>
-                  <span className="audit-ev">{x.source_type}</span>
+                  <span className="flex items-center gap-1.5">
+                    {x.source_type === "expert-note" && (
+                      <span className="risk risk-low-risk" title="Hard-won advice from experienced operators">Veteran knowledge</span>
+                    )}
+                    <span className="audit-ev">{x.source_type}</span>
+                  </span>
                 </div>
                 <h2 className="text-sm font-semibold">{x.title}</h2>
                 <p className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">{x.body}</p>
-                <div className="mt-2 font-mono text-[10px] text-muted-foreground">by {x.contributed_by}</div>
+                <div className="mt-2 font-mono text-[10px] text-muted-foreground">by {x.contributed_by} (fictional)</div>
               </article>
             ))}
           </div>

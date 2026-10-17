@@ -1,0 +1,142 @@
+{
+  "version": 1,
+  "sdk_version": "3.1.1",
+  "path": "/mcp",
+  "auth": {
+    "type": "none"
+  },
+  "mcp": {
+    "server": {
+      "name": "nonstop-guardian",
+      "version": "0.1.0",
+      "title": "NonStop Guardian"
+    },
+    "tools": [
+      {
+        "name": "get_system_status",
+        "title": "Get simulated system status",
+        "description": "Return the current simulated NonStop status: scenario, incident, alerts, 8 CPU loads, throughput and response time.",
+        "annotations": {
+          "readOnlyHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {},
+          "additionalProperties": false
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_scenarios",
+        "title": "List fault scenarios",
+        "description": "List the simulated fault scenarios available in the console and which one is active.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {},
+          "additionalProperties": false
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "check_command",
+        "title": "Check a command against the allowlist",
+        "description": "Check whether a command is on the server allowlist and return its risk tier, description and blast radius. Does not run anything.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200,
+              "description": "Command text, e.g. 'SCF STATUS CPU *'."
+            }
+          },
+          "required": [
+            "command"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "search_knowledge",
+        "title": "Search the knowledge base",
+        "description": "Search the ops playbook notes (HPE docs, past incidents, expert debriefs) by keyword; empty query lists all.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "Keywords to match in title, symptoms, cause or first checks."
+            },
+            "source_type": {
+              "type": "string",
+              "enum": [
+                "hpe-doc",
+                "past-incident",
+                "expert-note"
+              ],
+              "description": "Only return notes of this type."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "read_audit_log",
+        "title": "Read the audit log",
+        "description": "Read recent assistant audit entries (questions, proposals, approvals, outputs, interpretations), newest first, optionally filtered.",
+        "annotations": {
+          "readOnlyHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "search": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "Text to match in question, command, output, interpretation or detail."
+            },
+            "event_type": {
+              "type": "string",
+              "maxLength": 40,
+              "description": "Event type, e.g. question, proposed, approved, rejected, output, interpretation."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "description": "Max entries (default 25)."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}

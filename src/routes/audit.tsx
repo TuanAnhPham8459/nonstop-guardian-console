@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { SimBanner } from "@/components/SimBanner";
+import { useWebMCP } from "use-webmcp-tool";
+import { runWebMCPTool } from "@/lib/webmcp-telemetry";
 import { readAudit } from "@/lib/audit.functions";
 
 export const Route = createFileRoute("/audit")({
@@ -32,6 +34,29 @@ function AuditPage() {
     (filter === "all" || r.event_type === filter) &&
     (!needle || [r.session_id, r.actor, r.event_type, r.question, r.command, r.risk, r.output, r.interpretation, r.detail]
       .some((v) => v?.toLowerCase().includes(needle))));
+
+  useWebMCP({
+    name: "search_audit_log",
+    description: "Set the audit log search box and event filter on screen, then list the entries now shown (up to 30).",
+    annotations: { untrustedContentHint: true },
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Search text; empty string clears it." },
+        event_type: { type: "string", enum: types, description: "Event type filter." },
+      },
+    },
+    execute: (a: { query?: string; event_type?: string }) => runWebMCPTool("search_audit_log", () => {
+      if (a.query !== undefined && typeof a.query !== "string") throw new Error("query must be text.");
+      if (a.event_type !== undefined && !types.includes(a.event_type)) throw new Error("Unknown event type.");
+      const nq = a.query ?? q, nf = a.event_type ?? filter;
+      setQ(nq); setFilter(nf);
+      const nd = nq.trim().toLowerCase();
+      const list = rows.filter((r) => (nf === "all" || r.event_type === nf) &&
+        (!nd || [r.session_id, r.actor, r.event_type, r.question, r.command, r.risk, r.output, r.interpretation, r.detail].some((v) => v?.toLowerCase().includes(nd))));
+      return list.length ? list.slice(0, 30).map((r) => `${r.created_at} ${r.actor} ${r.event_type} ${r.command ?? ""}`).join("\n") : "No entries match.";
+    }),
+  });
 
   return (
     <div className="min-h-screen bg-background text-foreground">

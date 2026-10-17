@@ -1,5 +1,5 @@
 import type { EnvironmentAdapter, PolicyAdapter } from "./types";
-import { mockEnvClassify, mockEnvReset, mockEnvRun, mockEnvScenarios, mockEnvState } from "@/lib/mock-env.functions";
+import { mockEnvAdvanceTime, mockEnvClassify, mockEnvReset, mockEnvRun, mockEnvScenarios, mockEnvState } from "@/lib/mock-env.functions";
 
 // EnvironmentAdapter backed by the stateful "mock-env" backend.
 export const mockEnvironment: EnvironmentAdapter = {
@@ -7,6 +7,7 @@ export const mockEnvironment: EnvironmentAdapter = {
   getState: () => mockEnvState(),
   reset: async (scenario) => { await mockEnvReset({ data: scenario ? { scenario } : {} }); },
   listScenarios: () => mockEnvScenarios(),
+  advanceTime: () => mockEnvAdvanceTime(),
 };
 
 export const serverPolicy: PolicyAdapter = {

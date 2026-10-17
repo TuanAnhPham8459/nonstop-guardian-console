@@ -8,7 +8,7 @@ describe("command allowlist", () => {
     expect(v.ok && v.entry.risk).toBe("read-only");
   });
   it("abort process is high-risk", () => {
-    const v = validateCommand("ABORT PROCESS $ZZKRN.#PAYAUTH1");
+    const v = validateCommand("ABORT PROCESS $ZZKRN.#RPTGEN");
     expect(v.ok && v.entry.risk).toBe("high-risk");
   });
   it("rejects unlisted commands with a reason", () => {
@@ -27,10 +27,10 @@ describe("command allowlist", () => {
   it("every entry has a syntax status of confirmed or illustrative", () => {
     for (const c of ALLOWLIST) expect(["confirmed", "illustrative"]).toContain(c.syntaxStatus);
   });
-  it("the 10 illustrative commands from the spec are present", () => {
-    const illustrative = ALLOWLIST.filter((c) => c.syntaxStatus === "illustrative").map((c) => c.id);
-    for (const id of ["throttle_batch", "start_backup", "restore_cpu", "switch_path", "revive_mirror", "promote_standby", "stop_disk", "abort_transaction", "restart_tmf", "open_ticket"])
-      expect(illustrative).toContain(id);
+  it("every scenario option action is on the allowlist", async () => {
+    const { SCENARIOS } = await import("@/mock-env/scenarios/payment-slowdown");
+    for (const sc of Object.values(SCENARIOS))
+      for (const o of sc.options) expect(validateCommand(o.action).ok, o.action).toBe(true);
   });
   it("real RMXCI commands validate", () => {
     for (const cmd of ["SHOW SESSION", "SHOW TABLES", "SHOW LASTERROR", "SET TIMING ON", "SET STATISTICS ON", "GET STATISTICS"])

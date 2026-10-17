@@ -1,0 +1,307 @@
+{
+  "scenarios": [
+    {
+      "id": "cpu-failure",
+      "label": "CPU failure",
+      "title": "Loss of redundancy after CPU failure",
+      "opener": "CPU 3 went down and load is shifting. Here is what I would check first.",
+      "node": "\\BANKPRD1",
+      "incident": { "id": "INC-20417", "title": "Payment authorization latency high", "severity": "SEV2" },
+      "start": {
+        "clock": "14:02",
+        "cpuDown": 3,
+        "cpuBusy": [62, 60, 64, 0, 91, 94, 89, 63],
+        "avgResponse": 900,
+        "responseThreshold": 300,
+        "queue": 1850,
+        "tps": 410,
+        "unprotected": 4,
+        "redundancy": "REDUCED",
+        "hardwareTicket": false,
+        "hardwareRepaired": false,
+        "fact": "Backups already took over automatically. 4 payment processes now run WITHOUT a backup; a second failure would cause an outage."
+      },
+      "alerts": [
+        { "time": "14:02:00", "source": "EMS", "text": "CPU 3 down — process pairs taking over", "level": "crit" },
+        { "time": "14:02:04", "source": "Measure", "text": "Load shifted to CPUs 4-7", "level": "warn" },
+        { "time": "14:05:30", "source": "APM", "text": "Payment authorization latency high", "level": "crit" }
+      ],
+      "options": [
+        {
+          "id": "C1", "tier": 0, "action": "STATUS PROCESS $ZZKRN.#*", "syntax_status": "confirmed",
+          "risk": "read-only",
+          "output": [
+            "NONSTOP KERNEL - Status PROCESS \\BANKPRD1.$ZZKRN.#PAYAUTH1",
+            "  PRIMARY  CPU 3 (DOWN)  STATE: RUNNING ON BACKUP",
+            "  BACKUP   CPU 5  STATE: PRIMARY (TAKEOVER)",
+            "NONSTOP KERNEL - Status PROCESS \\BANKPRD1.$ZZKRN.#PAYAUTH2",
+            "  PRIMARY  CPU 6  STATE: RUNNING ON BACKUP   BACKUP CPU 7: PRIMARY (TAKEOVER)",
+            "WARNING: 4 payment processes running WITHOUT backup"
+          ],
+          "notes": ["note-01", "note-04"], "unlocks": ["C5", "C6"]
+        },
+        {
+          "id": "C2", "tier": 0, "action": "TMFCOM STATUS TMF", "syntax_status": "confirmed",
+          "risk": "read-only",
+          "output": ["TMF Status: STARTED", "Audit trail capacity used: 64%", "Oldest transaction age: 00:00:41", "TMF is healthy."],
+          "notes": ["note-03"]
+        },
+        {
+          "id": "C3", "tier": 0, "action": "OPEN HARDWARE TICKET + NOTIFY ON-CALL", "syntax_status": "illustrative",
+          "risk": "read-only",
+          "output": ["Hardware ticket HW-88412 opened for CPU 3.", "On-call engineer notified. ETA 45 min."],
+          "state_change": { "hardwareTicket": true },
+          "notes": ["note-15"], "unlocks": ["C7"]
+        },
+        {
+          "id": "C4", "tier": 1, "action": "THROTTLE BATCH QUEUE LOW", "syntax_status": "illustrative",
+          "risk": "low-risk",
+          "output": ["Batch queue throttled to LOW.", "Payment transactions now have scheduling priority."],
+          "state_change": { "avgResponse": 650, "queue": 1100 },
+          "risk_text": "Batch work is delayed; reports and settlement run late."
+        },
+        {
+          "id": "C5", "tier": 1, "action": "START BACKUP FOR $PAYAUTH1 ON CPU 7", "syntax_status": "illustrative",
+          "risk": "low-risk", "requires": ["C1"],
+          "output": ["NONSTOP KERNEL - backup for \\BANKPRD1.$ZZKRN.#PAYAUTH1 started on CPU 7", "One process pair protected again."],
+          "state_change": { "unprotected": 3, "avgResponseDelta": 20 },
+          "risk_text": "Checkpoint load on CPU 7; slight latency increase while the backup syncs."
+        },
+        {
+          "id": "C6", "tier": 2, "action": "ABORT PROCESS $ZZKRN.#RPTGEN", "syntax_status": "confirmed",
+          "risk": "high-risk", "requires": ["C1"],
+          "output": ["NONSTOP KERNEL - \\BANKPRD1.$ZZKRN.#RPTGEN ABORTED", "CPUs 4-6 freed; payment load rebalancing."],
+          "state_change": { "cpuBusy": [62, 60, 64, 0, 78, 78, 78, 63], "avgResponse": 280, "queue": 500 },
+          "risk_text": "The report generator stops and in-progress reports are lost; the business must re-run them later."
+        },
+        {
+          "id": "C7", "tier": 3, "action": "RESTORE CPU 3", "syntax_status": "illustrative",
+          "risk": "high-risk", "requires": ["C3"], "needs_second_operator": true,
+          "outcomes": {
+            "success": {
+              "when": "hardwareRepaired",
+              "output": ["CPU 3 rejoining the system...", "CPU 3 UP. Load rebalancing across CPUs 0-7.", "All process pairs protected again."],
+              "state_change": { "cpuDown": null, "cpuBusy": [65, 63, 66, 65, 64, 66, 63, 65], "avgResponse": 130, "queue": 80, "unprotected": 0, "redundancy": "FULL", "tps": 1880 }
+            },
+            "bad": {
+              "output": ["CPU 3 rejoining the system...", "CPU 3 failed again during reintegration.", "Load spiked while pairs re-took over."],
+              "state_change": { "avgResponse": 1400 }
+            }
+          },
+          "risk_text": "Restoring an unrepaired CPU can fail again mid-reintegration, forcing another takeover cycle and a worse outage window."
+        },
+        {
+          "id": "C8", "tier": 3, "action": "RESTART TMF", "syntax_status": "illustrative",
+          "risk": "high-risk", "trap": true,
+          "outcome": "OUTAGE",
+          "output": ["TMF restarting... all in-flight transactions backed out.", "*** OUTAGE: no transactions are being processed. TPS 0, response TIMEOUT."],
+          "risk_text": "Affects EVERY transaction on the node: all in-flight transactions are backed out and new ones are blocked until TMF is back. Last resort only."
+        }
+      ],
+      "timeEvents": [
+        { "afterOption": "C3", "afterMinutes": 45, "set": { "hardwareRepaired": true }, "message": "Engineer replaced the faulty hardware" }
+      ],
+      "endStates": {
+        "RESOLVED": "avgResponse <= 300 AND unprotected = 0",
+        "STABLE_AT_RISK": "avgResponse <= 300 AND unprotected > 0 (decision: accept the risk window or continue)",
+        "STALEMATE": "all tier 0-1 options done AND avgResponse > 300"
+      }
+    },
+    {
+      "id": "disk-degraded",
+      "label": "Disk degradation",
+      "title": "Storage path failure",
+      "opener": "Disk $DATA01 lost its primary path and I/O is slowing down. Here is what I would check first.",
+      "node": "\\BANKPRD1",
+      "incident": { "id": "INC-20422", "title": "Card ledger I/O latency high", "severity": "SEV2" },
+      "start": {
+        "clock": "09:41",
+        "cpuDown": null,
+        "cpuBusy": [60, 58, 62, 59, 61, 60, 58, 62],
+        "avgResponse": 600,
+        "responseThreshold": 300,
+        "queue": 960,
+        "tps": 1610,
+        "unprotected": 0,
+        "redundancy": "FULL",
+        "mirrorDegraded": "$DATA01"
+      },
+      "alerts": [
+        { "time": "09:41:12", "source": "EMS", "text": "$DATA01 primary path errors — running on mirror side B", "level": "crit" },
+        { "time": "09:41:40", "source": "Measure", "text": "$DATA01 disk queue length 14 (normal < 2)", "level": "warn" },
+        { "time": "09:44:05", "source": "APM", "text": "Card ledger write latency high", "level": "crit" }
+      ],
+      "options": [
+        {
+          "id": "D1", "tier": 0, "action": "SCF STATUS DISK $DATA01, DETAIL", "syntax_status": "illustrative",
+          "risk": "read-only", "one_time": true,
+          "output": [
+            "NONSTOP KERNEL - Status DISK $DATA01 (DETAIL)",
+            "  PRIMARY PATH: ERRORS (1,204 retries in last 5 min)",
+            "  MIRROR SIDE B: HEALTHY",
+            "  STANDBY VOLUME $DATA01S: AVAILABLE"
+          ],
+          "notes": ["note-05", "note-07"], "unlocks": ["D2", "D3", "D8"]
+        },
+        {
+          "id": "D2", "tier": 1, "action": "SWITCH STORAGE PATH $DATA01", "syntax_status": "illustrative",
+          "risk": "low-risk", "requires": ["D1"],
+          "output": ["$DATA01 switched to alternate path.", "I/O queue draining. Redundancy REDUCED until the primary path is repaired."],
+          "state_change": { "avgResponse": 300, "redundancy": "REDUCED" },
+          "notes": ["note-08"], "unlocks": ["D4", "D5"]
+        },
+        {
+          "id": "D3", "tier": 1, "action": "PAUSE REPORTING JOBS ON $DATA01", "syntax_status": "illustrative",
+          "risk": "low-risk", "requires": ["D1"],
+          "output": ["Reporting jobs on $DATA01 paused.", "Disk queue easing."],
+          "state_change": { "avgResponseDelta": -100 },
+          "unlocks": ["D4"]
+        },
+        {
+          "id": "D4", "tier": 2, "action": "REVIVE MIRROR $DATA01", "syntax_status": "illustrative",
+          "risk": "high-risk", "requires": ["D2"],
+          "outcomes": {
+            "success": {
+              "when": "D3",
+              "output": ["Mirror revive started for $DATA01.", "Revive complete. Both sides in sync."],
+              "state_change": { "avgResponse": 120, "redundancy": "FULL" }
+            },
+            "bad": {
+              "output": ["Mirror revive started for $DATA01.", "Revive during full load saturated the disk."],
+              "state_change": { "avgResponse": 780, "queueDelta": 900 }
+            }
+          },
+          "risk_text": "Revive copies the whole volume and adds heavy I/O for its duration. At full load this can slow every application using $DATA01, including card ledger writes.",
+          "notes": ["note-09"]
+        },
+        {
+          "id": "D5", "tier": 2, "action": "MOVE HOT FILES TO $DATA02", "syntax_status": "illustrative",
+          "risk": "high-risk", "requires": ["D2"],
+          "output": ["Hot files moved to $DATA02.", "$DATA02 load now HIGH."],
+          "state_change": { "avgResponse": 200 },
+          "risk_text": "$DATA02 is 91% full; moving hot files there risks filling it and blocking writes.",
+          "unlocks": ["D6"]
+        },
+        {
+          "id": "D6", "tier": 3, "action": "PROMOTE STANDBY VOLUME $DATA01S", "syntax_status": "illustrative",
+          "risk": "high-risk", "requiresAny": ["D5", "D8"], "needs_second_operator": true,
+          "output": ["$DATA01S promoted to ACTIVE.", "60s unavailability during cutover.", "214 transactions need reconciliation."],
+          "state_change": { "avgResponse": 90, "redundancy": "FULL" },
+          "risk_text": "Applications pointing at the old volume must be re-pointed; until they are, reads and writes fail. The standby becomes a single point of failure."
+        },
+        {
+          "id": "D7", "tier": 3, "action": "STOP DISK $DATA01", "syntax_status": "illustrative",
+          "risk": "high-risk", "trap": true,
+          "outcome": "OUTAGE",
+          "output": ["$DATA01 STOPPED. All data on the volume is offline.", "*** OUTAGE: card ledger and payment files unavailable."],
+          "risk_text": "Takes $DATA01 offline: all data on it becomes unavailable to every application until it is started again.",
+          "notes": ["note-10"]
+        },
+        {
+          "id": "D8", "tier": 0, "action": "OPEN HARDWARE TICKET + NOTIFY ON-CALL", "syntax_status": "illustrative",
+          "risk": "read-only",
+          "output": ["Hardware ticket HW-88419 opened for $DATA01 primary path.", "On-call engineer notified. ETA 45 min."],
+          "notes": ["note-15"], "unlocks": ["D6"]
+        }
+      ],
+      "endStates": {
+        "RESOLVED": "avgResponse <= 300 AND redundancy FULL",
+        "STABLE_DEGRADED": "avgResponse <= 300 AND redundancy REDUCED",
+        "STALEMATE": "all tier 0-1 options done AND avgResponse > 300"
+      }
+    },
+    {
+      "id": "txn-backlog",
+      "label": "Transaction backlog",
+      "title": "Lock contention, normal CPUs and disks",
+      "opener": "Transactions are piling up and response time is climbing. Here is what I would check first.",
+      "node": "\\BANKPRD1",
+      "incident": { "id": "INC-20431", "title": "Transaction backlog — lock contention", "severity": "SEV1" },
+      "start": {
+        "clock": "11:15",
+        "cpuDown": null,
+        "cpuBusy": [55, 52, 57, 54, 56, 53, 55, 58],
+        "avgResponse": 700,
+        "responseThreshold": 300,
+        "queue": 1850,
+        "queueGrowing": true,
+        "tps": 860,
+        "unprotected": 0,
+        "redundancy": "FULL",
+        "oldestTransaction": "11 min",
+        "ownerResponse": "UNKNOWN"
+      },
+      "alerts": [
+        { "time": "11:15:20", "source": "TMF", "text": "Active transactions 1,850 and growing", "level": "warn" },
+        { "time": "11:15:48", "source": "Measure", "text": "One transaction active for 11 minutes", "level": "warn" },
+        { "time": "11:17:02", "source": "APM", "text": "Payment authorization latency high", "level": "crit" }
+      ],
+      "options": [
+        {
+          "id": "T1", "tier": 0, "action": "GET STATISTICS", "syntax_status": "confirmed",
+          "risk": "read-only",
+          "output": ["(RMXCI statistics — Lock Wait and Lock Escl high, Disk I/Os normal. Points to a blocker, not disk or CPU.)"],
+          "notes": ["note-11", "note-16"], "unlocks": ["T2"]
+        },
+        {
+          "id": "T2", "tier": 0, "action": "TMFCOM STATUS TRANSACTIONS", "syntax_status": "confirmed",
+          "risk": "read-only", "requires": ["T1"],
+          "output": ["Active transactions: 1850", "Oldest transaction age: 00:11:00 (owner BATCH-SETTLE)"],
+          "unlocks": ["T4", "T6"]
+        },
+        {
+          "id": "T3", "tier": 1, "action": "PAUSE BATCH FEEDER", "syntax_status": "illustrative",
+          "risk": "low-risk",
+          "output": ["Batch feeder paused.", "Queue stopped growing."],
+          "state_change": { "queue": 1500, "queueGrowing": false }
+        },
+        {
+          "id": "T4", "tier": 0, "action": "NOTIFY APPLICATION OWNER", "syntax_status": "illustrative",
+          "risk": "read-only", "requires": ["T2"],
+          "output": ["Application owner of BATCH-SETTLE paged.", "Waiting for response..."],
+          "notes": ["note-13"]
+        },
+        {
+          "id": "T5", "tier": 1, "action": "ADD PAYAUTH SERVER INSTANCES (+2)", "syntax_status": "illustrative",
+          "risk": "low-risk",
+          "output": ["2 additional PAYAUTH server instances started.", "Queue draining marginally faster — the blocker is still holding locks."],
+          "state_change": { "queue": 1750 },
+          "notes": ["note-12"]
+        },
+        {
+          "id": "T6", "tier": 2, "action": "ABORT TRANSACTION 4821", "syntax_status": "illustrative",
+          "risk": "high-risk", "requires": ["T2"],
+          "outcomes": {
+            "success": {
+              "when": "ownerBlocked",
+              "output": ["Transaction 4821 (BATCH-SETTLE) backing out...", "Backout complete. Locks released; queue draining."],
+              "state_change": { "queue": 50, "avgResponse": 140, "queueGrowing": false }
+            },
+            "bad": {
+              "output": ["Transaction 4821 (BATCH-SETTLE) backing out...", "WARNING: aborted a legitimate settlement run. Business-impact flag written to the audit log."],
+              "state_change": { "queue": 400, "avgResponse": 320, "queueGrowing": false, "businessImpact": true }
+            }
+          },
+          "risk_text": "Rolls back all work done by the transaction. If it is a legitimate settlement run, that work is lost and must be re-run.",
+          "notes": ["note-13"]
+        },
+        {
+          "id": "T7", "tier": 3, "action": "RESTART TMF", "syntax_status": "illustrative",
+          "risk": "high-risk", "trap": true,
+          "outcome": "OUTAGE",
+          "output": ["TMF restarting... all in-flight transactions backed out.", "*** OUTAGE: no transactions are being processed. TPS 0, response TIMEOUT."],
+          "risk_text": "Affects EVERY transaction on the node: all in-flight transactions are backed out and new ones are blocked until TMF is back. Last resort only.",
+          "notes": ["note-14"]
+        }
+      ],
+      "timeEvents": [
+        { "afterOption": "T4", "afterMinutes": 10, "set": { "ownerResponse": "BLOCKED, abort approved" }, "message": "Application owner responded: BLOCKED, abort approved" }
+      ],
+      "endStates": {
+        "RESOLVED": "queue <= 200 AND avgResponse <= 300",
+        "CONTAINED": "queue not growing but blocker present",
+        "STALEMATE": "all tier 0-1 options done AND queue still growing"
+      }
+    }
+  ]
+}

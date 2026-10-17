@@ -11,7 +11,7 @@ describe("assistant enforcement", () => {
     expect(r.blocked[0]?.command).toBe("PURGE $SYSTEM.*");
   });
   it("attaches risk tier from the lookup table", () => {
-    const r = enforce({ ...base, proposed_commands: [{ command: "abort process $zzkrn.#payauth1", reason: "", sources: [], confidence: 0.5 }] }, ids);
+    const r = enforce({ ...base, proposed_commands: [{ command: "abort process $zzkrn.#rptgen", reason: "", sources: [], confidence: 0.5 }] }, ids);
     expect(r.proposed_commands[0]?.risk).toBe("high-risk");
   });
   it("marks illustrative commands as simulated and confirmed ones as documented", () => {

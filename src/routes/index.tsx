@@ -145,7 +145,7 @@ function HostPage() {
           <div className="flex items-center justify-between border-b border-border px-4 py-2">
             <div className="flex items-center gap-3">
               <span className="host-label shrink-0 whitespace-nowrap">Simulated host system</span>
-              <span className="truncate font-mono text-xs text-muted-foreground">{state.node} · {state.scenario?.label}</span>
+              <span className="truncate font-mono text-xs text-muted-foreground">{state.node} · {state.scenario?.label}{state.clock ? ` · ${state.clock}` : ""}</span>
             </div>
             <div className="flex gap-2">
             <select
@@ -163,6 +163,22 @@ function HostPage() {
                 <option key={x.id} value={x.id}>{x.label} — {x.title}</option>
               ))}
             </select>
+            <button
+              onClick={async () => {
+                const r = await env.advanceTime();
+                const st = await env.getState();
+                stateRef.current = st;
+                setState(st);
+                setLines((l) => [
+                  ...l,
+                  { kind: "sys", text: `⏩ Advanced 15 min — scenario time ${r.clock}` },
+                  ...r.messages.map((m) => ({ kind: "sys" as const, text: `📟 ${m}` })),
+                ]);
+              }}
+              className="btn-ghost font-mono text-xs"
+            >
+              ⏩ Advance 15 min
+            </button>
             <button
               onClick={async () => {
                 const id = state.scenario?.id;
@@ -233,6 +249,11 @@ function HostPage() {
             </section>
           </div>
 
+          {state.endState && (
+            <div className={`border-b border-border px-4 py-2 font-mono text-xs ${state.endState.id === "RESOLVED" ? "text-ok" : state.endState.id === "OUTAGE" ? "text-crit" : "text-warn"}`}>
+              ■ {state.endState.id}: {state.endState.label}
+            </div>
+          )}
           <div ref={scroll} className="terminal flex-1 overflow-y-auto p-4 font-mono text-[13px] leading-relaxed">
             {lines.map((l, i) => (
               <div key={i} className={`term-${l.kind} whitespace-pre-wrap`}>{l.kind === "in" ? `${l.prompt ?? "1->"} ${l.text}` : l.text}</div>

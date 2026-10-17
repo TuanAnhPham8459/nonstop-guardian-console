@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { getState, resetScenario, runCommand, commandHelp, listScenarios } from "@/mock-env/engine.server";
+import { getState, resetScenario, runCommand, commandHelp, listScenarios, advanceTime } from "@/mock-env/engine.server";
 import { validateCommand } from "@/mock-env/validate.server";
 
 // "mock-env" backend: simulated NonStop environment. No real system access.
@@ -40,3 +40,6 @@ export const mockEnvReset = createServerFn({ method: "POST" })
   });
 
 export const mockEnvScenarios = createServerFn({ method: "GET" }).handler(async () => listScenarios());
+
+// "Advance 15 min" — moves the scenario clock and fires time events (e.g. hardware repaired).
+export const mockEnvAdvanceTime = createServerFn({ method: "POST" }).handler(async () => advanceTime(15));

@@ -1,60 +1,117 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { getState, resetScenario, runCommand } from "@/mock-env/engine.server";
+import { advanceTime, endState, getState, resetScenario, runCommand } from "@/mock-env/engine.server";
 
-describe("mock-env payment-slowdown", () => {
-  beforeEach(() => resetScenario());
-  it("CPU 3 is down", () => expect(getState().cpus[3]?.status).toBe("down"));
-  it("response time climbs to 900ms", () => {
-    let r = 0;
-    for (let i = 0; i < 20; i++) r = getState().responseMs;
-    expect(r).toBe(900);
+describe("cpu-failure scenario", () => {
+  beforeEach(() => resetScenario("cpu-failure"));
+  it("CPU 3 is down, 4 processes unprotected, latency 900", () => {
+    const s = getState();
+    expect(s.cpus[3]?.status).toBe("down");
+    expect(s.unprotected).toBe(4);
+    expect(s.responseMs).toBe(900);
+    expect(s.queueDepth).toBe(1850);
+    expect(s.redundancy).toBe("REDUCED");
   });
   it("unknown commands are rejected", () =>
     expect(runCommand("FOO").output[0]).toMatch(/^command not recognized/));
-  it("shows queue depth, unprotected processes and reduced redundancy", () => {
-    const s = getState();
-    expect(s.queueDepth).toBe(1840);
-    expect(s.unprotected).toBe(3);
-    expect(s.redundancy).toBe("REDUCED");
-  });
-  it("RESTORE CPU 3 remediates; reset restores", () => {
-    expect(runCommand("restore cpu 3").risk).toBe("low-risk");
-    const s = getState();
-    expect(Math.max(...s.cpus.slice(4).map((c) => c.busy))).toBeLessThan(70);
-    expect(s.responseMs).toBe(180);
-    expect(s.redundancy).toBe("FULL");
-    resetScenario();
-    expect(getState().cpus[5]?.busy).toBe(91);
-  });
   it("STATUS PROCESS uses SCF-style numbered prompts", () => {
     const out = runCommand("STATUS PROCESS $ZZKRN.#*").output;
     expect(out[0]).toMatch(/^\d+->STATUS PROCESS/);
     expect(out.join("\n")).toMatch(/NONSTOP KERNEL - Status PROCESS \\BANKPRD1\.\$ZZKRN\.#PAYAUTH1/);
   });
+  it("C5 requires C1 first", () => {
+    expect(runCommand("START BACKUP FOR $PAYAUTH1 ON CPU 7").output.join("\n")).toMatch(/requires C1/);
+    runCommand("STATUS PROCESS $ZZKRN.#*");
+    expect(runCommand("START BACKUP FOR $PAYAUTH1 ON CPU 7").exitCode).toBe(0);
+    expect(getState().unprotected).toBe(3);
+  });
+  it("RESTORE CPU 3 needs the ticket, a second operator, and repaired hardware", () => {
+    expect(runCommand("RESTORE CPU 3").output.join("\n")).toMatch(/requires C3/);
+    runCommand("OPEN HARDWARE TICKET + NOTIFY ON-CALL");
+    expect(runCommand("RESTORE CPU 3").output.join("\n")).toMatch(/second operator/);
+    // Confirmed before repair -> BAD outcome
+    expect(runCommand("RESTORE CPU 3 CONFIRMED").exitCode).toBe(1);
+    expect(getState().responseMs).toBe(1400);
+    resetScenario("cpu-failure");
+    runCommand("OPEN HARDWARE TICKET + NOTIFY ON-CALL");
+    advanceTime(15); advanceTime(15); advanceTime(15); // 45 min -> hardware repaired
+    runCommand("RESTORE CPU 3");
+    expect(runCommand("RESTORE CPU 3 CONFIRMED").exitCode).toBe(0);
+    const s = getState();
+    expect(s.cpus[3]?.status).not.toBe("down");
+    expect(s.responseMs).toBe(130);
+    expect(s.unprotected).toBe(0);
+    expect(endState()?.id).toBe("RESOLVED");
+  });
+  it("RESTART TMF is a trap that causes an outage", () => {
+    expect(runCommand("RESTART TMF").exitCode).toBe(1);
+    expect(endState()?.id).toBe("OUTAGE");
+    expect(getState().tps).toBe(0);
+  });
+  it("STABLE_AT_RISK when latency is fine but processes are unprotected", () => {
+    runCommand("STATUS PROCESS $ZZKRN.#*");
+    runCommand("ABORT PROCESS $ZZKRN.#RPTGEN");
+    expect(getState().responseMs).toBe(280);
+    expect(endState()?.id).toBe("STABLE_AT_RISK");
+  });
 });
 
-describe("fault injection scenarios", () => {
-  it("disk degradation: no CPU down, $DATA02 mirror only; switch path remediates", () => {
-    resetScenario("disk-degradation");
+describe("disk-degraded scenario", () => {
+  beforeEach(() => resetScenario("disk-degraded"));
+  it("no CPU down; SCF STATUS DISK is one-time and unlocks D2", () => {
     expect(getState().cpus.some((c) => c.status === "down")).toBe(false);
-    expect(runCommand("TMFCOM STATUS DATAVOLS").output.join("\n")).toMatch(/\$DATA02.*MIRROR ONLY/);
-    runCommand("SWITCH STORAGE PATH $DATA02");
-    expect(getState().responseMs).toBe(210);
+    expect(runCommand("SWITCH STORAGE PATH $DATA01").output.join("\n")).toMatch(/requires D1/);
+    expect(runCommand("SCF STATUS DISK $DATA01, DETAIL").exitCode).toBe(0);
+    expect(runCommand("SCF STATUS DISK $DATA01, DETAIL").output.join("\n")).toMatch(/one-time/);
+    expect(runCommand("SWITCH STORAGE PATH $DATA01").exitCode).toBe(0);
+    expect(getState().responseMs).toBe(300);
+    expect(endState()?.id).toBe("STABLE_DEGRADED");
   });
-  it("transaction backlog: audit trail 91%, abort transaction remediates", () => {
-    resetScenario("txn-backlog");
-    expect(runCommand("TMFCOM STATUS TMF").output.join("\n")).toMatch(/91%/);
-    runCommand("ABORT TRANSACTION 4821");
-    expect(runCommand("TMFCOM STATUS TMF").output.join("\n")).toMatch(/74%/);
+  it("REVIVE MIRROR succeeds only after pausing reporting jobs", () => {
+    runCommand("SCF STATUS DISK $DATA01, DETAIL");
+    runCommand("SWITCH STORAGE PATH $DATA01");
+    expect(runCommand("REVIVE MIRROR $DATA01").exitCode).toBe(1); // D3 not done
+    expect(getState().responseMs).toBe(780);
+    resetScenario("disk-degraded");
+    runCommand("SCF STATUS DISK $DATA01, DETAIL");
+    runCommand("SWITCH STORAGE PATH $DATA01");
+    runCommand("PAUSE REPORTING JOBS ON $DATA01");
+    expect(runCommand("REVIVE MIRROR $DATA01").exitCode).toBe(0);
+    expect(endState()?.id).toBe("RESOLVED");
   });
-  it("each scenario has its own alerts", () => {
-    resetScenario("txn-backlog");
-    expect(getState().incident.alerts[0]?.text).toMatch(/Audit trail/);
+  it("STOP DISK $DATA01 is a trap", () => {
+    runCommand("STOP DISK $DATA01");
+    expect(endState()?.id).toBe("OUTAGE");
+  });
+});
+
+describe("txn-backlog scenario", () => {
+  beforeEach(() => resetScenario("txn-backlog"));
+  it("GET STATISTICS shows a lock problem; T2 requires T1", () => {
+    expect(runCommand("TMFCOM STATUS TRANSACTIONS").output.join("\n")).toMatch(/requires T1/);
+    runCommand("SET STATISTICS ON");
+    runCommand("GET STATISTICS");
+    expect(runCommand("TMFCOM STATUS TRANSACTIONS").output.join("\n")).toMatch(/BATCH-SETTLE/);
+  });
+  it("ABORT TRANSACTION succeeds only after owner approves (10 min after T4)", () => {
+    runCommand("SET STATISTICS ON");
+    runCommand("GET STATISTICS");
+    runCommand("TMFCOM STATUS TRANSACTIONS");
+    expect(runCommand("ABORT TRANSACTION 4821").exitCode).toBe(1); // owner UNKNOWN
+    runCommand("NOTIFY APPLICATION OWNER");
+    advanceTime(15);
+    expect(runCommand("ABORT TRANSACTION 4821").exitCode).toBe(0);
+    expect(getState().queueDepth).toBe(50);
+    expect(endState()?.id).toBe("RESOLVED");
+  });
+  it("PAUSE BATCH FEEDER contains the queue", () => {
+    runCommand("PAUSE BATCH FEEDER");
+    expect(getState().queueDepth).toBe(1500);
+    expect(endState()?.id).toBe("CONTAINED");
   });
 });
 
 describe("RMXCI commands", () => {
-  beforeEach(() => resetScenario());
+  beforeEach(() => resetScenario("cpu-failure"));
   it("GET STATISTICS requires SET STATISTICS ON first", () => {
     expect(runCommand("GET STATISTICS").output.join("\n")).toMatch(/SET STATISTICS ON/);
     runCommand("SET STATISTICS ON");
@@ -76,7 +133,7 @@ describe("RMXCI commands", () => {
     expect(out).toMatch(/PAYAUTH_TXN\s+52100\s+51230\s+3340\s+104200\s+52100000\s+148\s+26800/);
   });
   it("disk degradation shows high Disk I/Os and Disk Process Busy Time, low Lock Wait", () => {
-    resetScenario("disk-degradation");
+    resetScenario("disk-degraded");
     runCommand("SET STATISTICS ON");
     const out = runCommand("GET STATISTICS").output.join("\n");
     expect(out).toMatch(/CARD_LEDGER\s+24100\s+23890\s+41200\s+48200\s+24100000\s+3\s+110\s+38400/);

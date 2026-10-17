@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect } from "react";
 import { serverPolicy } from "@/adapters/mock-environment";
-import type { CheckedCommand } from "@/adapters/types";
+import type { CheckedCommand, ModelResponse } from "@/adapters/types";
+import { ProposalCard, type ProposalState } from "./ProposalCard";
 import { createPipeline, type HostBridge } from "@/core/pipeline";
 import { mockAudit, serverKnowledge, serverModel } from "@/adapters/mock-services";
 
@@ -10,17 +11,29 @@ type Msg =
   | { role: "op" | "ai" | "err"; text: string }
   | { role: "uncertain"; text: string }
   | { role: "blocked"; items: { command: string; reason: string }[] }
-  | { role: "proposal"; cmd: string; cls: CheckedCommand; state: "pending" | "approved" | "rejected" }
-  | { role: "result"; cmd: string; output: string[]; text: string };
+  | { role: "proposal"; cls: CheckedCommand; state: ProposalState }
+  | { role: "result"; cmd: string; output: string[] };
+
+function responseToMsgs(res: ModelResponse): Msg[] {
+  if (!res.ok) return [{ role: "err", text: res.error }];
+  const add: Msg[] = [{ role: "ai", text: res.explanation }];
+  res.proposed_commands.forEach((c) => add.push({ role: "proposal", cls: c, state: "pending" }));
+  if (res.blocked.length) add.push({ role: "blocked", items: res.blocked });
+  if (res.uncertainty) add.push({ role: "uncertain", text: res.uncertainty });
+  return add;
+}
 
 export function AssistantPanel({ host, onClose }: { host: HostBridge; onClose: () => void }) {
   const [msgs, setMsgs] = useState<Msg[]>([
-    { role: "ai", text: "Ops assistant attached. I can read recent terminal output and propose commands — nothing runs without your approval." },
+    { role: "ai", text: "Ops assistant attached. I can read recent terminal output and propose commands — nothing runs without your click." },
   ]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => { end.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
+
+  const setProposal = (i: number, patch: Partial<Extract<Msg, { role: "proposal" }>>) =>
+    setMsgs((m) => m.map((x, j) => (j === i && x.role === "proposal" ? { ...x, ...patch } : x)));
 
   async function ask(e: React.FormEvent) {
     e.preventDefault();
@@ -30,25 +43,32 @@ export function AssistantPanel({ host, onClose }: { host: HostBridge; onClose: (
     setBusy(true);
     setMsgs((m) => [...m, { role: "op", text: q }]);
     const res = await pipeline.ask(q, host);
-    if (!res.ok) {
-      setMsgs((m) => [...m, { role: "err", text: res.error }]);
-    } else {
-      const add: Msg[] = [{ role: "ai", text: res.explanation }];
-      res.proposed_commands.forEach((c) => add.push({ role: "proposal", cmd: c.command, cls: c, state: "pending" }));
-      if (res.blocked.length) add.push({ role: "blocked", items: res.blocked });
-      if (res.uncertainty) add.push({ role: "uncertain", text: res.uncertainty });
-      setMsgs((m) => [...m, ...add]);
-    }
+    setMsgs((m) => [...m, ...responseToMsgs(res)]);
     setBusy(false);
   }
 
-  async function decide(i: number, cmd: string, ok: boolean) {
-    setMsgs((m) => m.map((x, j) => (j === i && x.role === "proposal" ? { ...x, state: ok ? "approved" : "rejected" } : x)));
-    if (!ok) return pipeline.reject(cmd);
+  async function approve(i: number, cmd: string) {
+    setProposal(i, { state: "running" });
     setBusy(true);
     const r = await pipeline.approveAndRun(cmd, host);
-    setMsgs((m) => [...m, { role: "result", cmd, output: r.output, text: r.interpretation }]);
+    setProposal(i, { state: "approved" });
+    setMsgs((m) => [...m, ...(r.output.length ? [{ role: "result" as const, cmd, output: r.output }] : []), ...responseToMsgs(r.interpretation)]);
     setBusy(false);
+  }
+
+  function reject(i: number, cmd: string) {
+    setProposal(i, { state: "rejected" });
+    pipeline.reject(cmd);
+  }
+
+  // Edited commands are re-classified against the server allowlist; risk never comes from the model.
+  async function edit(i: number, prev: CheckedCommand, next: string): Promise<string | null> {
+    const cls = await pipeline.classify(next);
+    if (!cls.allowed) return cls.reason;
+    setProposal(i, {
+      cls: { ...prev, command: next.trim().replace(/\s+/g, " ").toUpperCase(), risk: cls.risk, description: cls.description, blast_radius: cls.blastRadius, reason: `${prev.reason} (edited by operator)` },
+    });
+    return null;
   }
 
   return (
@@ -76,40 +96,21 @@ export function AssistantPanel({ host, onClose }: { host: HostBridge; onClose: (
             );
           if (m.role === "proposal")
             return (
-              <div key={i} className="proposal">
-                <div className="mb-1 flex items-center justify-between text-[10px] uppercase tracking-widest text-muted-foreground">
-                  <span>Proposed command</span>
-                  <span className={`risk risk-${m.cls.risk}`}>{m.cls.risk}</span>
-                </div>
-                <div className="mb-1 text-xs text-muted-foreground">{m.cls.description}</div>
-                <div className="mb-1 text-xs">{m.cls.reason}</div>
-                <div className="mb-1 flex flex-wrap gap-1 font-mono text-[10px] text-muted-foreground">
-                  <span>confidence {Math.round(m.cls.confidence * 100)}%</span>
-                  {m.cls.sources.map((s) => <span key={s} className="risk risk-low-risk">{s}</span>)}
-                  {m.cls.unknown_sources.map((s) => <span key={s} className="risk risk-high-risk" title="Unknown source removed">?{s}</span>)}
-                </div>
-                <code className="block font-mono text-sm text-primary">&gt; {m.cmd}</code>
-                {m.cls.blast_radius && (
-                  <div className="blast mt-2"><span className="font-semibold">Blast radius: </span>{m.cls.blast_radius}</div>
-                )}
-                {m.state === "pending" ? (
-                  <div className="mt-3 flex gap-2">
-                    <button disabled={busy} onClick={() => decide(i, m.cmd, true)} className="btn-approve">Approve & run</button>
-                    <button disabled={busy} onClick={() => decide(i, m.cmd, false)} className="btn-ghost">Reject</button>
-                  </div>
-                ) : (
-                  <div className={`mt-2 font-mono text-[11px] ${m.state === "approved" ? "text-ok" : "text-destructive"}`}>
-                    {m.state.toUpperCase()}
-                  </div>
-                )}
-              </div>
+              <ProposalCard
+                key={i}
+                cmd={m.cls}
+                state={m.state}
+                disabled={busy}
+                onApprove={() => approve(i, m.cls.command)}
+                onReject={() => reject(i, m.cls.command)}
+                onEdit={(next) => edit(i, m.cls, next)}
+                getSource={(id) => pipeline.getSource(id)}
+              />
             );
-          if (m.role !== "result") return null;
           return (
-            <div key={i} className="bubble-ai whitespace-pre-wrap">
-              <div className="mb-1 text-[10px] uppercase tracking-widest text-muted-foreground">Output of {m.cmd}</div>
-              <pre className="mb-2 overflow-x-auto rounded bg-background p-2 font-mono text-[11px] text-ok">{m.output.join("\n")}</pre>
-              {m.text}
+            <div key={i} className="term-block">
+              <div className="term-block-head">mock-env · {m.cmd}</div>
+              <pre>{m.output.join("\n")}</pre>
             </div>
           );
         })}

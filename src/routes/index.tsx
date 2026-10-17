@@ -105,8 +105,8 @@ function HostPage() {
         <main className="flex min-w-0 flex-1 flex-col">
           <div className="flex items-center justify-between border-b border-border px-4 py-2">
             <div className="flex items-center gap-3">
-              <span className="host-label">Simulated host system</span>
-              <span className="font-mono text-xs text-muted-foreground">{state.node} · OPS-MON v4.2 · scenario: {state.scenario?.label}</span>
+              <span className="host-label shrink-0 whitespace-nowrap">Simulated host system</span>
+              <span className="truncate font-mono text-xs text-muted-foreground">{state.node} · {state.scenario?.label}</span>
             </div>
             <div className="flex gap-2">
             <select
@@ -117,7 +117,7 @@ function HostPage() {
                 if (!id) return;
                 await inject(id, `Fault injected: ${scenarios.find((x) => x.id === id)?.label ?? id}.`);
               }}
-              className="btn-ghost bg-background font-mono text-xs text-warn"
+              className="btn-ghost w-40 bg-background font-mono text-xs text-warn"
             >
               <option value="">⚡ Inject fault…</option>
               {scenarios.map((x) => (

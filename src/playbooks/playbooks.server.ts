@@ -193,8 +193,8 @@ export interface PlaybookInfluence {
 interface OptionGate {
   id: string;
   action: string;
-  requires?: string[];
-  requiresAny?: string[];
+  requires?: string[] | undefined;
+  requiresAny?: string[] | undefined;
 }
 
 // Reorder/annotate proposed commands per the first matching approved playbook.

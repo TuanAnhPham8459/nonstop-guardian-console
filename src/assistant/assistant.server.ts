@@ -86,7 +86,7 @@ function parse(raw: string): ModelOutput | null {
 
 export interface PlaybookContext {
   playbooks: Playbook[]; // approved, trigger-matched only
-  catalog: { id: string; action: string; requires?: string[]; requiresAny?: string[] }[];
+  catalog: { id: string; action: string; requires?: string[] | undefined; requiresAny?: string[] | undefined }[];
   executedIds: Set<string>;
 }
 

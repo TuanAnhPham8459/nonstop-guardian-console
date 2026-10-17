@@ -22,6 +22,13 @@
       "when": 1792272759877,
       "tag": "0002_add_advice_to_knowledge_notes",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792273831998,
+      "tag": "0003_create_playbooks",
+      "breakpoints": true
     }
   ]
 }

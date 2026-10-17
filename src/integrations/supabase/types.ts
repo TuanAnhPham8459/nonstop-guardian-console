@@ -92,6 +92,51 @@ export type Database = {
         }
         Relationships: []
       }
+      playbooks: {
+        Row: {
+          approved_by: string | null
+          author: string
+          created_at: string
+          escalate_if: string
+          id: string
+          never_do: Json
+          status: string
+          steps: Json
+          stop_conditions: string
+          title: string
+          trigger: Json
+          version: number
+        }
+        Insert: {
+          approved_by?: string | null
+          author: string
+          created_at?: string
+          escalate_if?: string
+          id: string
+          never_do?: Json
+          status?: string
+          steps?: Json
+          stop_conditions?: string
+          title: string
+          trigger?: Json
+          version?: number
+        }
+        Update: {
+          approved_by?: string | null
+          author?: string
+          created_at?: string
+          escalate_if?: string
+          id?: string
+          never_do?: Json
+          status?: string
+          steps?: Json
+          stop_conditions?: string
+          title?: string
+          trigger?: Json
+          version?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

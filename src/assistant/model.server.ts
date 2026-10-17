@@ -1,6 +1,6 @@
 // The ONE function that talks to the AI provider. Swap provider/model here only.
 const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const MODEL = "google/gemini-3.5-flash";
+const MODEL = "google/gemini-3.8-flash";
 const TEMPERATURE = 0.2;
 
 export class ModelCallError extends Error {

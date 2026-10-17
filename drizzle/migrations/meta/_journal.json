@@ -8,6 +8,13 @@
       "when": 1792270145502,
       "tag": "0000_create_knowledge_notes",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792270370108,
+      "tag": "0001_create_audit_log",
+      "breakpoints": true
     }
   ]
 }

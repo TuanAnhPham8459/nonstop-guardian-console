@@ -20,7 +20,7 @@ export interface CommandResult {
   command: string;
   output: string[];
   exitCode: number;
-  risk?: string;
+  risk?: string | undefined;
 }
 
 export interface EnvironmentAdapter {
@@ -68,15 +68,26 @@ export interface ModelAdapter {
   complete(req: ModelRequest): Promise<ModelResponse>;
 }
 
+export type AuditEventType =
+  | "question" | "proposed" | "blocked" | "approved" | "rejected" | "output" | "interpretation" | "debrief" | "error" | "proactive";
 export interface AuditEvent {
-  at: string;
   actor: "operator" | "assistant" | "system";
-  action: string;
-  detail?: string;
+  event_type: AuditEventType;
+  question?: string | undefined;
+  command?: string | undefined;
+  risk?: string | undefined;
+  output?: string | undefined;
+  interpretation?: string | undefined;
+  detail?: string | undefined;
+}
+export interface AuditRecord extends AuditEvent {
+  id: string;
+  created_at: string;
+  session_id: string;
 }
 export interface AuditAdapter {
-  log(event: Omit<AuditEvent, "at">): void;
-  entries(): AuditEvent[];
+  log(event: AuditEvent): void; // fire-and-forget append
+  list(): Promise<AuditRecord[]>;
 }
 
 export type Classification =

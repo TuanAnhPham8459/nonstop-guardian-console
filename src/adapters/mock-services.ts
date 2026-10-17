@@ -1,4 +1,5 @@
-import type { AuditAdapter, AuditEvent, KnowledgeAdapter, ModelAdapter } from "./types";
+import type { AuditAdapter, KnowledgeAdapter, ModelAdapter } from "./types";
+import { readAudit, writeAudit } from "@/lib/audit.functions";
 import { askAssistant, getKnowledgeNoteFn, searchKnowledgeFn, submitDebrief } from "@/lib/assistant.functions";
 
 export const serverKnowledge: KnowledgeAdapter = {
@@ -11,10 +12,11 @@ export const serverModel: ModelAdapter = {
   complete: (req) => askAssistant({ data: { question: req.question, state: req.state } }),
 };
 
-const log: AuditEvent[] = [];
-export const mockAudit: AuditAdapter = {
+// Persists every step to the audit_log table.
+const SESSION_ID = `S-${Date.now().toString(36).toUpperCase()}`;
+export const dbAudit: AuditAdapter = {
   log(e) {
-    log.push({ ...e, at: new Date().toISOString().slice(11, 19) });
+    void writeAudit({ data: { ...e, session_id: SESSION_ID } }).catch((err) => console.error("audit write failed", err));
   },
-  entries: () => [...log],
+  list: () => readAudit(),
 };

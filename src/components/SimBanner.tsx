@@ -14,6 +14,9 @@ export function SimBanner() {
           <Link to="/architecture" className="tab" activeProps={{ className: "tab tab-active" }}>
             Architecture
           </Link>
+          <Link to="/audit" className="tab" activeProps={{ className: "tab tab-active" }}>
+            Audit
+          </Link>
         </nav>
       </div>
     </div>

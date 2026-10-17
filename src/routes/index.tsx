@@ -23,9 +23,11 @@ export const Route = createFileRoute("/")({
   component: HostPage,
 });
 
-type Line = { kind: "in" | "out" | "err" | "sys"; text: string };
+type Line = { kind: "in" | "out" | "err" | "sys"; text: string; prompt?: string };
 const env = mockEnvironment;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+// RMXCI commands get the SQL> prompt; everything else gets the numbered SCF-style prompt.
+const isRmxci = (cmd: string) => /^(SHOW|SET|GET|SPOOL)\b/i.test(cmd.trim());
 
 function HostPage() {
   const [lines, setLines] = useState<Line[]>([
@@ -46,6 +48,7 @@ function HostPage() {
   const stateRef = useRef(state);
   stateRef.current = state;
   const scroll = useRef<HTMLDivElement>(null);
+  const promptNo = useRef(1);
 
   useEffect(() => {
     const t = setInterval(() => { env.getState().then(setState); setNow(Date.now()); }, 2000);
@@ -53,8 +56,10 @@ function HostPage() {
   }, []);
   useEffect(() => { scroll.current?.scrollTo({ top: scroll.current.scrollHeight }); }, [lines, typed]);
 
+  const nextPrompt = (cmd: string) => (isRmxci(cmd) ? "SQL>" : `${promptNo.current++}->`);
+
   const execute = useCallback(async (cmd: string) => {
-    setLines((l) => [...l, { kind: "in", text: cmd }]);
+    setLines((l) => [...l, { kind: "in", text: cmd, prompt: nextPrompt(cmd) }]);
     if (cmd.trim().toLowerCase() === "clear") { setLines([]); return []; }
     const r = await env.runCommand(cmd);
     setLines((l) => [...l, ...r.output.map((t) => ({ kind: (r.exitCode ? "err" : "out") as Line["kind"], text: t }))]);
@@ -215,16 +220,25 @@ function HostPage() {
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <div><div className="metric-label">Throughput</div><div className="metric">{state.tps.toLocaleString()} <span className="text-xs text-muted-foreground">TPS</span></div></div>
                 <div><div className="metric-label">Response time</div><div className="metric text-warn">{state.responseMs} <span className="text-xs text-muted-foreground">ms</span></div></div>
+                <div><div className="metric-label">Queue depth</div><div className="metric">{state.queueDepth.toLocaleString()}</div></div>
+                <div>
+                  <div className="metric-label">No backup</div>
+                  <div className={`metric ${state.unprotected > 0 ? "text-crit" : ""}`}>{state.unprotected} <span className="text-xs text-muted-foreground">proc</span></div>
+                </div>
+                <div className="col-span-2">
+                  <div className="metric-label">Redundancy</div>
+                  <div className={`metric ${state.redundancy === "REDUCED" ? "text-warn" : ""}`}>{state.redundancy}</div>
+                </div>
               </div>
             </section>
           </div>
 
           <div ref={scroll} className="terminal flex-1 overflow-y-auto p-4 font-mono text-[13px] leading-relaxed">
             {lines.map((l, i) => (
-              <div key={i} className={`term-${l.kind} whitespace-pre-wrap`}>{l.kind === "in" ? `$OPS 1> ${l.text}` : l.text}</div>
+              <div key={i} className={`term-${l.kind} whitespace-pre-wrap`}>{l.kind === "in" ? `${l.prompt ?? "1->"} ${l.text}` : l.text}</div>
             ))}
             <form onSubmit={submit} className="flex">
-              <span className="term-in shrink-0">$OPS 1&gt;&nbsp;</span>
+              <span className="term-in shrink-0">{isRmxci(typed) ? "SQL>" : `${promptNo.current}->`}&nbsp;</span>
               <input
                 value={typed}
                 onChange={(e) => !locked && setTyped(e.target.value)}

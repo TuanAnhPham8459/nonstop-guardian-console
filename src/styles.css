@@ -132,13 +132,80 @@
   --sidebar-ring: oklch(0.551 0.027 264.364);
 }
 
-@layer base {
-  * {
-    border-color: var(--color-border);
-  }
+/* Ops console theme (always dark) */
+:root {
+  --background: oklch(0.16 0.012 250);
+  --foreground: oklch(0.92 0.01 240);
+  --card: oklch(0.2 0.014 250);
+  --card-foreground: oklch(0.92 0.01 240);
+  --primary: oklch(0.8 0.15 75);
+  --primary-foreground: oklch(0.16 0.012 250);
+  --muted: oklch(0.24 0.014 250);
+  --muted-foreground: oklch(0.62 0.02 245);
+  --accent: oklch(0.26 0.03 220);
+  --accent-foreground: oklch(0.78 0.1 210);
+  --destructive: oklch(0.65 0.21 25);
+  --border: oklch(0.3 0.015 250);
+  --input: oklch(0.3 0.015 250);
+  --ring: oklch(0.8 0.15 75);
+  --ok: oklch(0.78 0.17 150);
+  --warn: oklch(0.8 0.15 75);
+  --crit: oklch(0.65 0.21 25);
+  --terminal: oklch(0.11 0.01 250);
+  --font-sans: "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+@theme inline {
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-crit: var(--crit);
+  --color-terminal: var(--terminal);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+}
 
-  body {
-    background-color: var(--color-background);
-    color: var(--color-foreground);
-  }
+@layer base {
+  * { border-color: var(--color-border); }
+  body { background-color: var(--color-background); color: var(--color-foreground); font-family: var(--font-sans); }
+}
+
+@layer components {
+  .sim-banner { background: repeating-linear-gradient(135deg, var(--warn) 0 14px, oklch(0.72 0.14 70) 14px 28px); color: var(--primary-foreground); }
+  .tab { padding: 2px 10px; border-radius: 3px; background: color-mix(in oklab, var(--background) 25%, transparent); }
+  .tab-active { background: var(--background); color: var(--warn); }
+  .host-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: .15em; text-transform: uppercase; padding: 2px 8px; border: 1px dashed var(--accent-foreground); color: var(--accent-foreground); border-radius: 3px; }
+  .tile { background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 12px; }
+  .sev { font-family: var(--font-mono); font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 3px; background: color-mix(in oklab, var(--crit) 25%, transparent); color: var(--crit); border: 1px solid var(--crit); }
+  .dot { width: 7px; height: 7px; border-radius: 9999px; margin-top: 5px; flex-shrink: 0; }
+  .dot-crit { background: var(--crit); box-shadow: 0 0 8px var(--crit); }
+  .dot-warn { background: var(--warn); }
+  .dot-info { background: var(--accent-foreground); }
+  .cpu { font-family: var(--font-mono); text-align: center; padding: 6px 0; border-radius: 4px; border: 1px solid; }
+  .cpu-ok { color: var(--ok); border-color: color-mix(in oklab, var(--ok) 40%, transparent); background: color-mix(in oklab, var(--ok) 10%, transparent); }
+  .cpu-warn { color: var(--warn); border-color: var(--warn); background: color-mix(in oklab, var(--warn) 14%, transparent); }
+  .cpu-crit { color: var(--crit); border-color: var(--crit); background: color-mix(in oklab, var(--crit) 18%, transparent); }
+  .cpu-down { color: var(--muted-foreground); border-color: var(--border); background: repeating-linear-gradient(45deg, var(--muted) 0 4px, transparent 4px 8px); }
+  .metric-label { font-size: 10px; text-transform: uppercase; letter-spacing: .12em; color: var(--muted-foreground); }
+  .metric { font-family: var(--font-mono); font-size: 22px; font-variant-numeric: tabular-nums; }
+  .terminal { background: var(--terminal); }
+  .term-in { color: var(--warn); }
+  .term-out { color: var(--ok); }
+  .term-err { color: var(--crit); }
+  .term-sys { color: var(--muted-foreground); }
+  .term-input { background: transparent; outline: none; color: var(--warn); caret-color: var(--warn); }
+  .panel { background: var(--card); }
+  .bubble-op { margin-left: 2rem; padding: 8px 12px; border-radius: 6px; background: var(--accent); font-size: 13px; }
+  .bubble-ai { margin-right: 1rem; padding: 8px 12px; border-radius: 6px; background: var(--muted); font-size: 13px; }
+  .proposal { padding: 10px 12px; border-radius: 6px; border: 1px solid var(--warn); background: color-mix(in oklab, var(--warn) 8%, transparent); }
+  .btn-approve { font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 4px; background: var(--primary); color: var(--primary-foreground); }
+  .btn-approve:disabled { opacity: .5; }
+  .btn-ghost { font-size: 12px; padding: 6px 10px; border-radius: 4px; border: 1px solid var(--border); color: var(--foreground); }
+  .btn-ghost:hover { background: var(--muted); }
+  .field { background: var(--background); border: 1px solid var(--border); border-radius: 4px; padding: 6px 10px; font-size: 13px; outline: none; }
+  .field:focus { border-color: var(--ring); }
+  .arch-box { border-radius: 6px; padding: 14px; border: 1px solid; background: var(--card); }
+  .arch-host { border-color: var(--accent-foreground); border-style: dashed; }
+  .arch-core { border-color: var(--warn); }
+  .arch-adapter { border-color: var(--ok); }
+  .note { font-family: var(--font-mono); font-size: 12px; padding: 10px 14px; border-left: 3px solid var(--warn); background: var(--muted); }
 }

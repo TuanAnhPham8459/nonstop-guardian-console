@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_log: {
+        Row: {
+          actor: string
+          command: string | null
+          created_at: string
+          detail: string | null
+          event_type: string
+          id: string
+          interpretation: string | null
+          output: string | null
+          question: string | null
+          risk: string | null
+          session_id: string
+        }
+        Insert: {
+          actor: string
+          command?: string | null
+          created_at?: string
+          detail?: string | null
+          event_type: string
+          id?: string
+          interpretation?: string | null
+          output?: string | null
+          question?: string | null
+          risk?: string | null
+          session_id: string
+        }
+        Update: {
+          actor?: string
+          command?: string | null
+          created_at?: string
+          detail?: string | null
+          event_type?: string
+          id?: string
+          interpretation?: string | null
+          output?: string | null
+          question?: string | null
+          risk?: string | null
+          session_id?: string
+        }
+        Relationships: []
+      }
       knowledge_notes: {
         Row: {
           cause: string

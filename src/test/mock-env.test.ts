@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { getState, resetScenario, runCommand } from "@/mock-env/engine";
+import { getState, resetScenario, runCommand } from "@/mock-env/engine.server";
 
 describe("mock-env payment-slowdown", () => {
   beforeEach(() => resetScenario());

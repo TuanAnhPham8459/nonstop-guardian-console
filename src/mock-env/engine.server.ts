@@ -1,5 +1,6 @@
 import type { CommandResult, SystemState } from "@/adapters/types";
-import { COMMANDS, matchCommand } from "./commands.config";
+import { ALLOWLIST } from "./allowlist.server";
+import { validateCommand } from "./validate.server";
 import { SCENARIOS, paymentSlowdown, type Scenario } from "./scenarios/payment-slowdown";
 
 // Stateful simulation engine. Pure TS, no I/O — runs inside the mock-env backend.
@@ -52,9 +53,10 @@ export function getState(): SystemState {
 }
 
 export function runCommand(cmd: string): CommandResult & { risk?: string } {
-  const def = matchCommand(cmd);
+  const v = validateCommand(cmd);
   const sc = s.scenario;
-  if (!def) return { command: cmd, output: ["command not recognized"], exitCode: 1 };
+  if (!v.ok) return { command: cmd, output: [v.reason], exitCode: 1 };
+  const def = v.entry;
 
   switch (def.id) {
     case "status_cpu":
@@ -82,6 +84,8 @@ export function runCommand(cmd: string): CommandResult & { risk?: string } {
         command: cmd, risk: def.risk, exitCode: 0,
         output: ["VOLUME     STATE     PATH", ...sc.disks.map((d) => `${d.vol.padEnd(10)} ${d.state.padEnd(9)} ${d.path}`)],
       };
+    case "measure_cpu":
+      return { command: cmd, risk: def.risk, exitCode: 0, output: ["MEASCOM: CPU entity added for CPUs 0-7", "Collection running (interval 60s)"] };
     case "restart_process":
       s.remediated = true;
       return {
@@ -91,4 +95,4 @@ export function runCommand(cmd: string): CommandResult & { risk?: string } {
   }
 }
 
-export const commandHelp = () => COMMANDS.map((c) => `${c.pattern.padEnd(32)} [${c.risk}] ${c.description}`);
+export const commandHelp = () => ALLOWLIST.map((c) => `${c.pattern.padEnd(32)} [${c.risk}] ${c.description}`);

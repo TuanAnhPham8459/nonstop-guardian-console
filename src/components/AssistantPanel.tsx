@@ -1,13 +1,14 @@
 import { useRef, useState, useEffect } from "react";
-import { matchCommand } from "@/mock-env/commands.config";
+import { serverPolicy } from "@/adapters/mock-environment";
+import type { Classification } from "@/adapters/types";
 import { createPipeline, type HostBridge } from "@/core/pipeline";
 import { mockAudit, mockKnowledge, mockModel } from "@/adapters/mock-services";
 
-const pipeline = createPipeline({ knowledge: mockKnowledge, model: mockModel, audit: mockAudit });
+const pipeline = createPipeline({ knowledge: mockKnowledge, model: mockModel, audit: mockAudit, policy: serverPolicy });
 
 type Msg =
   | { role: "op" | "ai"; text: string }
-  | { role: "proposal"; cmd: string; state: "pending" | "approved" | "rejected" }
+  | { role: "proposal"; cmd: string; cls: Extract<Classification, { allowed: true }>; state: "pending" | "approved" | "rejected" }
   | { role: "result"; cmd: string; output: string[]; text: string };
 
 export function AssistantPanel({ host, onClose }: { host: HostBridge; onClose: () => void }) {
@@ -30,7 +31,7 @@ export function AssistantPanel({ host, onClose }: { host: HostBridge; onClose: (
     setMsgs((m) => [
       ...m,
       { role: "ai", text: res.text },
-      ...(res.proposedCommand ? [{ role: "proposal" as const, cmd: res.proposedCommand, state: "pending" as const }] : []),
+      ...(res.proposedCommand && res.classification?.allowed ? [{ role: "proposal" as const, cmd: res.proposedCommand, cls: res.classification, state: "pending" as const }] : []),
     ]);
     setBusy(false);
   }
@@ -62,9 +63,13 @@ export function AssistantPanel({ host, onClose }: { host: HostBridge; onClose: (
               <div key={i} className="proposal">
                 <div className="mb-1 flex items-center justify-between text-[10px] uppercase tracking-widest text-muted-foreground">
                   <span>Proposed command</span>
-                  {matchCommand(m.cmd)?.risk === "high-risk" ? <span className="sev">HIGH RISK</span> : <span className="text-ok">read-only</span>}
+                  <span className={`risk risk-${m.cls.risk}`}>{m.cls.risk}</span>
                 </div>
+                <div className="mb-1 text-xs text-muted-foreground">{m.cls.description}</div>
                 <code className="block font-mono text-sm text-primary">&gt; {m.cmd}</code>
+                {m.cls.blastRadius && (
+                  <div className="blast mt-2"><span className="font-semibold">Blast radius: </span>{m.cls.blastRadius}</div>
+                )}
                 {m.state === "pending" ? (
                   <div className="mt-3 flex gap-2">
                     <button disabled={busy} onClick={() => decide(i, m.cmd, true)} className="btn-approve">Approve & run</button>

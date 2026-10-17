@@ -32,6 +32,10 @@ export interface Scenario {
   responseMs: { start: number; peak: number; recovered: number };
   rampTicks: number;
   tps: { degraded: number; recovered: number };
+  queue: { degraded: number; recovered: number }; // pending transactions
+  unprotected: { degraded: number; recovered: number }; // processes without backup
+  redundancy: { degraded: "FULL" | "REDUCED"; recovered: "FULL" | "REDUCED" };
+  fix: "restore_cpu" | "switch_path" | "abort_transaction"; // command that remediates this scenario
   alerts: { time: string; source: string; text: string; level: Level }[];
   recoveredAlert: string;
   restartOutput: string[];

@@ -8,6 +8,9 @@ export interface SystemState {
   cpus: { id: number; busy: number; status: CpuStatus }[];
   tps: number;
   responseMs: number;
+  queueDepth: number;
+  unprotected: number; // processes running without a backup
+  redundancy: "FULL" | "REDUCED";
   incident: {
     id: string;
     title: string;

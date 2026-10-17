@@ -9,3 +9,8 @@
 - [x] Assistant distinguishes lock vs disk problems from stats columns
 - [x] Notes note-16..18 (user's real JSON uploaded and inserted)
 - [x] "Simulated syntax" badge on SCF/TMF command cards; RMXCI footer
+- [x] New spec: confirmed+illustrative command catalog (STATUS/ABORT/START PROCESS, TMFCOM variants, 10 illustrative commands)
+- [x] Status panel: queue depth, no-backup counter, redundancy FULL/REDUCED
+- [x] SCF numbered "N->" prompts + "SQL>" RMXCI prompts in terminal
+- [x] Knowledge notes note-01..17 with advice field; "Veteran knowledge" badge + "(fictional)" contributors
+- [x] Per-scenario fix commands (RESTORE CPU 3 / SWITCH STORAGE PATH / ABORT TRANSACTION)

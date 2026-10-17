@@ -11,27 +11,41 @@ describe("mock-env payment-slowdown", () => {
   });
   it("unknown commands are rejected", () =>
     expect(runCommand("FOO").output[0]).toMatch(/^command not recognized/));
-  it("restart lowers CPU 4-7 load and latency; reset restores", () => {
-    expect(runCommand("scf  restart process $payauth").risk).toBe("high-risk");
+  it("shows queue depth, unprotected processes and reduced redundancy", () => {
+    const s = getState();
+    expect(s.queueDepth).toBe(1840);
+    expect(s.unprotected).toBe(3);
+    expect(s.redundancy).toBe("REDUCED");
+  });
+  it("RESTORE CPU 3 remediates; reset restores", () => {
+    expect(runCommand("restore cpu 3").risk).toBe("low-risk");
     const s = getState();
     expect(Math.max(...s.cpus.slice(4).map((c) => c.busy))).toBeLessThan(70);
     expect(s.responseMs).toBe(180);
+    expect(s.redundancy).toBe("FULL");
     resetScenario();
     expect(getState().cpus[5]?.busy).toBe(91);
+  });
+  it("STATUS PROCESS uses SCF-style numbered prompts", () => {
+    const out = runCommand("STATUS PROCESS $ZZKRN.#*").output;
+    expect(out[0]).toMatch(/^\d+->STATUS PROCESS/);
+    expect(out.join("\n")).toMatch(/NONSTOP KERNEL - Status PROCESS \\BANKPRD1\.\$ZZKRN\.#PAYAUTH1/);
   });
 });
 
 describe("fault injection scenarios", () => {
-  it("disk degradation: no CPU down, $DATA02 mirror only", () => {
+  it("disk degradation: no CPU down, $DATA02 mirror only; switch path remediates", () => {
     resetScenario("disk-degradation");
     expect(getState().cpus.some((c) => c.status === "down")).toBe(false);
-    expect(runCommand("SCF STATUS DISK $*").output.join("\n")).toMatch(/\$DATA02.*MIRROR ONLY/);
+    expect(runCommand("TMFCOM STATUS DATAVOLS").output.join("\n")).toMatch(/\$DATA02.*MIRROR ONLY/);
+    runCommand("SWITCH STORAGE PATH $DATA02");
+    expect(getState().responseMs).toBe(210);
   });
-  it("transaction backlog: audit trail 91%, drops after restart", () => {
+  it("transaction backlog: audit trail 91%, abort transaction remediates", () => {
     resetScenario("txn-backlog");
-    expect(runCommand("TMFCOM STATUS TMF").output[1]).toMatch(/91%/);
-    runCommand("SCF RESTART PROCESS $PAYAUTH");
-    expect(runCommand("TMFCOM STATUS TMF").output[1]).toMatch(/74%/);
+    expect(runCommand("TMFCOM STATUS TMF").output.join("\n")).toMatch(/91%/);
+    runCommand("ABORT TRANSACTION 4821");
+    expect(runCommand("TMFCOM STATUS TMF").output.join("\n")).toMatch(/74%/);
   });
   it("each scenario has its own alerts", () => {
     resetScenario("txn-backlog");
@@ -42,17 +56,18 @@ describe("fault injection scenarios", () => {
 describe("RMXCI commands", () => {
   beforeEach(() => resetScenario());
   it("GET STATISTICS requires SET STATISTICS ON first", () => {
-    expect(runCommand("GET STATISTICS").output[0]).toMatch(/SET STATISTICS ON/);
+    expect(runCommand("GET STATISTICS").output.join("\n")).toMatch(/SET STATISTICS ON/);
     runCommand("SET STATISTICS ON");
     expect(runCommand("GET STATISTICS").exitCode).toBe(0);
   });
-  it("GET STATISTICS prints the expected layout", () => {
+  it("GET STATISTICS prints the expected layout with SQL> prompt", () => {
     runCommand("SET STATISTICS ON");
     const out = runCommand("GET STATISTICS").output;
-    expect(out[0]).toMatch(/^Start Time:/);
-    expect(out[1]).toMatch(/^End Time:/);
-    expect(out[2]).toMatch(/^Elapsed Time:/);
-    expect(out[4]).toMatch(/Table Name.*Records Accessed.*Records Used.*Disk I\/Os.*Message Count.*Message Bytes.*Lock Escl.*Lock Wait.*Disk Process Busy Time/);
+    expect(out[0]).toMatch(/^SQL> GET STATISTICS/);
+    expect(out[1]).toMatch(/^Start Time:/);
+    expect(out[2]).toMatch(/^End Time:/);
+    expect(out[3]).toMatch(/^Elapsed Time:/);
+    expect(out[5]).toMatch(/Table Name.*Records Accessed.*Records Used.*Disk I\/Os.*Message Count.*Message Bytes.*Lock Escl.*Lock Wait.*Disk Process Busy Time/);
   });
   it("transaction backlog shows high Lock Wait/Lock Escl, normal Disk I/Os", () => {
     resetScenario("txn-backlog");

@@ -11,11 +11,19 @@ describe("assistant enforcement", () => {
     expect(r.blocked[0]?.command).toBe("PURGE $SYSTEM.*");
   });
   it("attaches risk tier from the lookup table", () => {
-    const r = enforce({ ...base, proposed_commands: [{ command: "scf restart process $payauth", reason: "", sources: [], confidence: 0.5 }] }, ids);
+    const r = enforce({ ...base, proposed_commands: [{ command: "abort process $zzkrn.#payauth1", reason: "", sources: [], confidence: 0.5 }] }, ids);
     expect(r.proposed_commands[0]?.risk).toBe("high-risk");
   });
+  it("marks illustrative commands as simulated and confirmed ones as documented", () => {
+    const r = enforce({ ...base, proposed_commands: [
+      { command: "RESTORE CPU 3", reason: "", sources: [], confidence: 0.5 },
+      { command: "STATUS PROCESS $ZZKRN.#*", reason: "", sources: [], confidence: 0.5 },
+    ] }, ids);
+    expect(r.proposed_commands[0]?.simulated).toBe(true);
+    expect(r.proposed_commands[1]?.simulated).toBe(false);
+  });
   it("removes unknown source IDs and flags them", () => {
-    const r = enforce({ ...base, proposed_commands: [{ command: "SCF STATUS CPU *", reason: "", sources: ["KB-101", "KB-999"], confidence: 1 }] }, ids);
+    const r = enforce({ ...base, proposed_commands: [{ command: "TMFCOM STATUS TMF", reason: "", sources: ["KB-101", "KB-999"], confidence: 1 }] }, ids);
     expect(r.proposed_commands[0]?.sources).toEqual(["KB-101"]);
     expect(r.proposed_commands[0]?.unknown_sources).toEqual(["KB-999"]);
   });

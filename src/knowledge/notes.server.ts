@@ -30,7 +30,7 @@ function db() {
 export const toNote = (r: NoteRow): KnowledgeNote => ({
   id: r.id,
   title: r.title,
-  body: `Symptoms: ${r.symptoms} Cause: ${r.cause} Check first: ${r.what_to_check_first}`,
+  body: r.advice ?? `Symptoms: ${r.symptoms} Cause: ${r.cause} Check first: ${r.what_to_check_first}`,
   source_type: r.source_type,
   contributed_by: r.contributed_by,
 });

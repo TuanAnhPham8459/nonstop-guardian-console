@@ -3,6 +3,10 @@
 export type CpuStatus = "ok" | "warn" | "crit" | "down";
 
 export interface SystemState {
+  sessionId?: string;
+  revision?: number;
+  maintenance?: { id: string; status: "IN_PROGRESS" | "COMPLETED" | "CHECK_FAILED"; createdMinute: number; elapsedMinutes: number; durationMinutes: number } | null;
+  receipts?: Record<string, CommandResult>;
   node: string;
   scenario?: { id: string; label: string; opener: string };
   cpus: { id: number; busy: number; status: CpuStatus }[];
@@ -27,14 +31,16 @@ export interface CommandResult {
   output: string[];
   exitCode: number;
   risk?: string | undefined;
+  status?: "succeeded" | "failed" | "awaiting-second-operator";
+  state?: SystemState;
 }
 
 export interface EnvironmentAdapter {
-  runCommand(cmd: string): Promise<CommandResult>;
+  runCommand(cmd: string, operationId?: string): Promise<CommandResult>;
   getState(): Promise<SystemState>;
   reset(scenario?: string): Promise<void>;
   listScenarios(): Promise<{ id: string; label: string; title: string }[]>;
-  advanceTime(): Promise<{ clock: string; messages: string[] }>;
+  advanceTime(): Promise<{ clock: string; messages: string[]; state?: SystemState }>;
 }
 
 export interface KnowledgeHit {

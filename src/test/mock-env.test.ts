@@ -34,7 +34,7 @@ describe("cpu-failure scenario", () => {
     resetScenario("cpu-failure");
     runCommand("OPEN HARDWARE TICKET + NOTIFY ON-CALL");
     advanceTime(15); advanceTime(15); advanceTime(15); // 45 min -> hardware repaired
-    runCommand("RESTORE CPU 3");
+    expect(runCommand("RESTORE CPU 3").output.join("\n")).toContain("already online");
     expect(runCommand("RESTORE CPU 3 CONFIRMED").exitCode).toBe(0);
     const s = getState();
     expect(s.cpus[3]?.status).not.toBe("down");

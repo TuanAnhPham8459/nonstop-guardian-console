@@ -1,4 +1,8 @@
 # Roadmap
+- [x] Preserve incident chat/drafts/history and distinguish real execution outcomes
+- [x] Fix C6 CPU utilization and automatic 45-minute maintenance recovery
+- [x] Isolate and durably persist simulation sessions; prevent stale polling and duplicate events
+- [x] Verify regression tests and browser recovery/persistence flows
 - [x] Inject fault menu (CPU failure, disk degradation, transaction backlog)
 - [x] Rehearsal mode toggle (cached assistant replies)
 - [x] Audit log search bar

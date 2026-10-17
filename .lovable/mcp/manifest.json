@@ -15,7 +15,7 @@
       {
         "name": "get_system_status",
         "title": "Get simulated system status",
-        "description": "Return the current simulated NonStop status: scenario, incident, alerts, 8 CPU loads, throughput and response time.",
+        "description": "Return the public default simulated NonStop example: scenario, incident, alerts, CPU loads, throughput and response time. Private browser simulation sessions are not exposed by this tool.",
         "annotations": {
           "readOnlyHint": true,
           "openWorldHint": false
@@ -31,7 +31,7 @@
       {
         "name": "list_scenarios",
         "title": "List fault scenarios",
-        "description": "List the simulated fault scenarios available in the console and which one is active.",
+        "description": "List the simulated fault scenarios and the public example default. Private browser session selection is not exposed.",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,

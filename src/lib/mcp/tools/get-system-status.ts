@@ -4,7 +4,7 @@ import { getState } from "@/mock-env/engine.server";
 export default defineTool({
   name: "get_system_status",
   title: "Get simulated system status",
-  description: "Return the current simulated NonStop status: scenario, incident, alerts, 8 CPU loads, throughput and response time.",
+  description: "Return the public default simulated NonStop example: scenario, incident, alerts, CPU loads, throughput and response time. Private browser simulation sessions are not exposed by this tool.",
   inputSchema: {},
   annotations: { readOnlyHint: true, openWorldHint: false },
   handler: () => {
@@ -19,7 +19,7 @@ export default defineTool({
       responseMs: s.responseMs,
     };
     const text = [
-      `SIMULATED ${status.node} · ${status.scenario} · ${status.incident.id} ${status.incident.title} (${status.incident.severity})`,
+      `PUBLIC DEFAULT EXAMPLE (not a private browser session) · SIMULATED ${status.node} · ${status.scenario} · ${status.incident.id} ${status.incident.title} (${status.incident.severity})`,
       `TPS ${status.tps} · response ${status.responseMs} ms`,
       `CPUs: ${status.cpus.map((c) => `${c.id}:${c.status === "down" ? "DOWN" : `${c.busy}%`}`).join(" ")}`,
       ...status.alerts.map((a) => `[${a.level}] ${a.time} ${a.source}: ${a.text}`),

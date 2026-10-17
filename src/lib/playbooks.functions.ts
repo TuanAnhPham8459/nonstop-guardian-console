@@ -3,7 +3,7 @@ import { z } from "zod";
 import { approvePlaybook, listPlaybooks, savePlaybook } from "@/playbooks/playbooks.server";
 import { ALLOWLIST } from "@/mock-env/allowlist.server";
 import { SCENARIOS } from "@/mock-env/scenarios/payment-slowdown";
-import { executedOptionIds } from "@/mock-env/engine.server";
+import { simulationSession } from "@/mock-env/session.server";
 
 export const listPlaybooksFn = createServerFn({ method: "GET" }).handler(async () => listPlaybooks());
 
@@ -52,7 +52,7 @@ export const listCatalogFn = createServerFn({ method: "GET" }).handler(async () 
 
 // Options already executed in the current incident — used by "Convert to playbook".
 export const executedOptionsFn = createServerFn({ method: "GET" }).handler(async () => {
-  const ids = executedOptionIds();
+  const ids = (await simulationSession()).executed;
   const sc = Object.values(SCENARIOS).find((s) => s.options.some((o) => ids.includes(o.id)));
   return ids.map((id) => {
     const o = sc?.options.find((x) => x.id === id);

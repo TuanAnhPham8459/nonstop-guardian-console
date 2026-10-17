@@ -8,7 +8,15 @@ import { SCENARIOS, defaultScenario, type Scenario, type ScenarioOption, type St
 // `requires`, `one_time`, `needs_second_operator` and traps; a scenario clock advances
 // in 15-minute steps and fires time events (e.g. hardware repaired 45 min after the ticket).
 
-interface EnvState {
+export interface EnvState {
+  sessionId: string;
+  optionMinutes: Record<string, number>;
+  timing: boolean;
+  statistics: boolean;
+  spooling: string | null;
+  scfPrompt: number;
+  ticket: NonNullable<SystemState["maintenance"]> | null;
+  receipts: Record<string, CommandResult>;
   scenario: Scenario;
   executed: Set<string>; // option ids already run
   pendingSecond: string | null; // option id awaiting second-operator confirmation
@@ -19,12 +27,15 @@ interface EnvState {
   startedAt: number;
 }
 
-let s: EnvState = fresh(defaultScenario.id);
+export function createEngine(snapshot?: SerializedSimulation) {
+let s: EnvState = snapshot ? { ...snapshot, scenario: SCENARIOS[snapshot.scenarioId] ?? defaultScenario, executed: new Set(snapshot.executed) } : fresh(defaultScenario.id);
+const events: { command?: string; output?: string; detail: string }[] = [];
 
 function fresh(id: string): EnvState {
   const sc = SCENARIOS[id] ?? defaultScenario;
   const st = sc.start;
   return {
+    sessionId: crypto.randomUUID(), optionMinutes: {}, timing: false, statistics: false, spooling: null, scfPrompt: 1, ticket: null, receipts: {},
     scenario: sc,
     executed: new Set(),
     pendingSecond: null,
@@ -50,12 +61,9 @@ function fresh(id: string): EnvState {
   };
 }
 
-export function resetScenario(id = defaultScenario.id) {
+function resetScenario(id = defaultScenario.id) {
   s = fresh(id);
-  timing = false;
-  statistics = false;
-  spooling = null;
-  scfPrompt = 1;
+  events.length = 0;
 }
 
 function applyChange(c: StateChange) {
@@ -76,30 +84,46 @@ function applyChange(c: StateChange) {
 
 function clock() {
   const [h, m] = s.scenario.start.clock.split(":").map(Number);
-  const total = h! * 60 + m! + s.minutes;
+  const total = (h ?? 0) * 60 + (m ?? 0) + s.minutes;
   return `${String(Math.floor(total / 60) % 24).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 }
 
-export function advanceTime(step = 15): { clock: string; messages: string[] } {
+function advanceTime(step = 15): { clock: string; messages: string[] } {
   s.minutes += step;
   const messages: string[] = [];
   for (const ev of s.scenario.timeEvents ?? []) {
-    const firedKey = `fired:${ev.afterOption}`;
+    const firedKey = `fired:${ev.afterOption}:${ev.afterMinutes}`;
     if (s.executed.has(ev.afterOption) && !s.flags[firedKey]) {
-      const ranAt = optionMinutes.get(ev.afterOption) ?? 0;
+      const ranAt = s.optionMinutes[ev.afterOption] ?? 0;
       if (s.minutes - ranAt >= ev.afterMinutes) {
         s.flags[firedKey] = true;
         applyChange(ev.set);
         messages.push(ev.message);
+        events.push({ detail: `Simulated repair event: ${ev.message}` });
+        if (ev.maintenanceCompletion && s.ticket) {
+          const passes = s.flags["hardwareRepaired"] === true && s.metrics.cpuDown === 3 && !s.outage;
+          s.ticket = { ...s.ticket, status: passes ? "COMPLETED" : "CHECK_FAILED", elapsedMinutes: s.minutes - s.ticket.createdMinute };
+          if (passes) {
+            applyChange(ev.maintenanceCompletion);
+            s.pendingSecond = null;
+            const message = "Simulated post-repair health check PASSED; CPU 3 automatically reintegrated, process protection restored.";
+            messages.push(message);
+            events.push({ detail: message });
+          } else {
+            messages.push("Simulated post-repair health check failed; automatic reintegration withheld.");
+            events.push({ detail: "Simulated post-repair health check FAILED; CPU reintegration withheld." });
+          }
+        }
       }
     }
   }
+  if (s.ticket && s.ticket.status === "IN_PROGRESS") s.ticket.elapsedMinutes = s.minutes - s.ticket.createdMinute;
   return { clock: clock(), messages };
 }
-const optionMinutes = new Map<string, number>(); // when each option ran (scenario clock)
+
 
 // End-state evaluation, per the scenario's endStates table.
-export function endState(): { id: string; label: string } | null {
+function endState(): { id: string; label: string } | null {
   const m = s.metrics;
   if (s.outage) return { id: "OUTAGE", label: s.outage };
   const th = s.scenario.start.responseThreshold;
@@ -108,7 +132,7 @@ export function endState(): { id: string; label: string } | null {
     .every((o) => s.executed.has(o.id));
   switch (s.scenario.id) {
     case "cpu-failure":
-      if (m.avgResponse <= th && m.unprotected === 0) return { id: "RESOLVED", label: "Resolved — latency back under threshold and every process pair protected." };
+      if (m.avgResponse <= th && m.unprotected === 0 && m.cpuDown === null && m.redundancy === "FULL" && m.tps > 0) return { id: "RESOLVED", label: "Resolved — latency back under threshold and every process pair protected." };
       if (m.avgResponse <= th && m.unprotected > 0)
         return { id: "STABLE_AT_RISK", label: `Stable at risk — latency is fine, but ${m.unprotected} process(es) still run without a backup. Accept the risk window or continue.` };
       if (lowTierDone && m.avgResponse > th) return { id: "STALEMATE", label: "Stalemate — the safe options are exhausted and latency is still high. A high-risk decision is needed." };
@@ -128,7 +152,7 @@ export function endState(): { id: string; label: string } | null {
   }
 }
 
-export function getState(): SystemState {
+function getState(): SystemState {
   const sc = s.scenario;
   const m = s.metrics;
   const alerts = [...sc.alerts];
@@ -136,6 +160,9 @@ export function getState(): SystemState {
   if (es && es.id !== "OUTAGE") alerts.push({ time: clock(), source: "OPS", text: es.label, level: es.id === "RESOLVED" ? "info" : "warn" });
   if (s.outage) alerts.push({ time: clock(), source: "EMS", text: s.outage, level: "crit" });
   return {
+    sessionId: s.sessionId,
+    maintenance: s.ticket,
+    receipts: s.receipts,
     node: sc.node,
     scenario: { id: sc.id, label: sc.label, opener: sc.opener },
     cpus: m.cpuBusy.map((v, id) => ({
@@ -155,12 +182,7 @@ export function getState(): SystemState {
 }
 
 // RMXCI session flags (reset with the scenario).
-let timing = false;
-let statistics = false;
-let spooling: string | null = null;
-// SCF-style numbered prompt, incremented per command.
-let scfPrompt = 1;
-const prompt = () => `${scfPrompt++}->`;
+const prompt = () => `${s.scfPrompt++}->`;
 
 // Fictional GET STATISTICS numbers per scenario (lock problem vs disk problem).
 function statsOutput(): string[] {
@@ -212,7 +234,7 @@ function statsOutput(): string[] {
     `${pad("Table Name", 14)}${pad("Records Accessed", 17)}${pad("Records Used", 13)}${pad("Disk I/Os", 10)}${pad("Message Count", 14)}${pad("Message Bytes", 14)}${pad("Lock Escl", 10)}${pad("Lock Wait", 10)}Disk Process Busy Time`,
     ...rows.map(
       (r) =>
-        `${pad(r[0]!, 14)}${pad(r[1]!, 17)}${pad(r[2]!, 13)}${pad(r[3]!, 10)}${pad(r[4]!, 14)}${pad(r[5]!, 14)}${pad(r[6]!, 10)}${pad(r[7]!, 10)}${r[8]}`,
+        `${pad(r[0] ?? "", 14)}${pad(r[1] ?? "", 17)}${pad(r[2] ?? "", 13)}${pad(r[3] ?? "", 10)}${pad(r[4] ?? "", 14)}${pad(r[5] ?? "", 14)}${pad(r[6] ?? "", 10)}${pad(r[7] ?? "", 10)}${r[8]}`,
     ),
   ];
 }
@@ -237,16 +259,17 @@ function runOption(o: ScenarioOption, cmd: string, risk: string): CommandResult 
   if (gate) return { command: cmd, risk, exitCode: 1, output: [`${p}${normalize(cmd)}`, `*** Not allowed: ${gate}`] };
 
   // Second-operator rule: first attempt arms it; the operator must re-issue with "CONFIRMED".
-  if (o.needs_second_operator && s.pendingSecond !== o.id) {
+  if (o.needs_second_operator && (s.pendingSecond !== o.id || !/ CONFIRMED$/.test(normalize(cmd)))) {
     s.pendingSecond = o.id;
     return {
-      command: cmd, risk, exitCode: 1,
+      command: cmd, risk, exitCode: 1, status: "awaiting-second-operator",
       output: [`${p}${normalize(cmd)}`, `*** ${o.id} requires a second operator. Re-issue the command ending with CONFIRMED to proceed.`],
     };
   }
   s.pendingSecond = null;
   s.executed.add(o.id);
-  optionMinutes.set(o.id, s.minutes);
+  s.optionMinutes[o.id] ??= s.minutes;
+  if (o.id === "C3" && !s.ticket) s.ticket = { id: "HW-88412", status: "IN_PROGRESS", createdMinute: s.minutes, durationMinutes: 45, elapsedMinutes: 0 };
 
   if (o.trap || o.outcome === "OUTAGE") {
     s.outage = `${o.action} caused an outage — all transaction processing stopped.`;
@@ -268,7 +291,7 @@ function runOption(o: ScenarioOption, cmd: string, risk: string): CommandResult 
   return { command: cmd, risk, exitCode: 0, output: [`${p}${normalize(cmd)}`, ...(o.output ?? [])] };
 }
 
-export function runCommand(cmd: string): CommandResult & { risk?: string } {
+function runCommand(cmd: string): CommandResult & { risk?: string } {
   // Second-operator confirmation: "<command> CONFIRMED" re-issues an armed option.
   const confirmed = / CONFIRMED$/.test(normalize(cmd));
   const base = confirmed ? cmd.replace(/\s+CONFIRMED\s*$/i, "") : cmd;
@@ -279,15 +302,17 @@ export function runCommand(cmd: string): CommandResult & { risk?: string } {
 
   const opt = findOption(base);
   if (opt) {
+    if (opt.id === "C7" && s.metrics.cpuDown === null) return { command: cmd, risk: def.risk, exitCode: 0, output: ["CPU 3 is already online; no recovery performed."] };
     if (opt.needs_second_operator && s.pendingSecond === opt.id && confirmed) s.pendingSecond = opt.id; // already armed — proceed
     else if (opt.needs_second_operator && confirmed) return { command: cmd, risk: def.risk, exitCode: 1, output: [`${p}${normalize(base)}`, "*** Nothing to confirm: issue the command first to arm second-operator approval."] };
     // Confirmed commands that are also options (e.g. STATUS PROCESS, GET STATISTICS):
     // gate and record the option, then fall through to the confirmed handler for output.
-    if (def.id === "option") return runOption(opt, base, def.risk);
+    if (def.id === "option") return runOption(opt, cmd, def.risk);
     const gate = optionGate(opt);
     if (gate) return { command: cmd, risk: def.risk, exitCode: 1, output: [`${p}${normalize(base)}`, `*** Not allowed: ${gate}`] };
+    if (def.id === "get_statistics" && !s.statistics) return { command: cmd, risk: def.risk, exitCode: 1, output: ["*** ERROR[15001] Statistics are not enabled. Issue SET STATISTICS ON first."] };
     s.executed.add(opt.id);
-    optionMinutes.set(opt.id, s.minutes);
+    s.optionMinutes[opt.id] ??= s.minutes;
   }
 
   switch (def.id) {
@@ -349,9 +374,9 @@ export function runCommand(cmd: string): CommandResult & { risk?: string } {
         output: [
           "SQL> SHOW SESSION",
           "Session attributes:",
-          `  TIMING      ${timing ? "ON" : "OFF"}`,
-          `  STATISTICS  ${statistics ? "ON" : "OFF"}`,
-          `  SPOOL       ${spooling ?? "OFF"}`,
+          `  TIMING      ${s.timing ? "ON" : "OFF"}`,
+          `  STATISTICS  ${s.statistics ? "ON" : "OFF"}`,
+          `  SPOOL       ${s.spooling ?? "OFF"}`,
           "  CATALOG     BANKPRD",
           "  SCHEMA      OPS",
         ],
@@ -361,36 +386,57 @@ export function runCommand(cmd: string): CommandResult & { risk?: string } {
     case "show_lasterror":
       return { command: cmd, risk: def.risk, exitCode: 0, output: ["SQL> SHOW LASTERROR", "No error. Last statement completed successfully (SQLCODE 0)."] };
     case "set_timing":
-      timing = true;
+      s.timing = true;
       return { command: cmd, risk: def.risk, exitCode: 0, output: ["SQL> SET TIMING ON", "Timing is ON."] };
     case "set_statistics":
-      statistics = true;
+      s.statistics = true;
       return { command: cmd, risk: def.risk, exitCode: 0, output: ["SQL> SET STATISTICS ON", "Statistics collection is ON."] };
     case "get_statistics":
-      if (!statistics)
+      if (!s.statistics)
         return { command: cmd, risk: def.risk, exitCode: 1, output: ["SQL> GET STATISTICS", "*** ERROR[15001] Statistics are not enabled. Issue SET STATISTICS ON first."] };
       return { command: cmd, risk: def.risk, exitCode: 0, output: ["SQL> GET STATISTICS", ...statsOutput()] };
     case "spool":
-      spooling = "$SPOOL.OUT01";
+      s.spooling = "$SPOOL.OUT01";
       return { command: cmd, risk: def.risk, exitCode: 0, output: ["SQL> SPOOL $SPOOL.OUT01", "Spooling to $SPOOL.OUT01 (simulated — no file is written)."] };
     default:
       return { command: cmd, risk: def.risk, exitCode: 1, output: [`${p}${normalize(base)}`, "*** No handler for this command in the current scenario."] };
   }
 }
 
-export const commandHelp = () => [
+const commandHelp = () => [
   "Confirmed commands (documented by HPE):",
   ...ALLOWLIST.filter((c) => c.syntaxStatus === "confirmed").map((c) => `  ${c.pattern.padEnd(46)} [${c.risk}] ${c.description}`),
   "Illustrative commands (invented for the demo):",
   ...ALLOWLIST.filter((c) => c.syntaxStatus === "illustrative").map((c) => `  ${c.pattern.padEnd(46)} [${c.risk}] ${c.description}`),
 ];
 
-export const listScenarios = () => Object.values(SCENARIOS).map((x) => ({ id: x.id, label: x.label, title: x.incident.title }));
-export const currentScenarioId = () => s.scenario.id;
+const listScenarios = () => Object.values(SCENARIOS).map((x) => ({ id: x.id, label: x.label, title: x.incident.title }));
+const currentScenarioId = () => s.scenario.id;
 // Option ids already executed in the current scenario (for playbook conflict checks and debrief prefill).
-export const executedOptionIds = () => [...s.executed];
+const executedOptionIds = () => [...s.executed];
 // Catalog view of every scenario option's gating rules (for playbook safety checks).
-export const optionGates = () =>
+const optionGates = () =>
   Object.values(SCENARIOS).flatMap((sc) =>
     sc.options.map((o) => ({ id: o.id, action: o.action, requires: o.requires, requiresAny: o.requiresAny })),
   );
+
+function snapshotState(): SerializedSimulation {
+  const { scenario, executed, ...rest } = s;
+  return { ...rest, scenarioId: scenario.id, executed: [...executed] };
+}
+return { getState, resetScenario, runCommand, advanceTime, endState, commandHelp, listScenarios, currentScenarioId, executedOptionIds, optionGates, snapshot: snapshotState, events, receipts: s.receipts };
+}
+export type SerializedSimulation = Omit<EnvState, "scenario" | "executed"> & { scenarioId: string; executed: string[] };
+// Lazy compatibility facade for pure engine tests and public read-only demo tools.
+let demo: ReturnType<typeof createEngine> | undefined;
+const engine = () => demo ??= createEngine();
+export const getState = () => engine().getState();
+export const resetScenario = (id?: string) => engine().resetScenario(id);
+export const runCommand = (cmd: string) => engine().runCommand(cmd);
+export const advanceTime = (step = 15) => engine().advanceTime(step);
+export const endState = () => engine().endState();
+export const commandHelp = () => engine().commandHelp();
+export const listScenarios = () => engine().listScenarios();
+export const currentScenarioId = () => engine().currentScenarioId();
+export const executedOptionIds = () => engine().executedOptionIds();
+export const optionGates = () => engine().optionGates();

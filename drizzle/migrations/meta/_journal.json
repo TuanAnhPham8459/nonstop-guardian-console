@@ -29,6 +29,13 @@
       "when": 1792273831998,
       "tag": "0003_create_playbooks",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792277221776,
+      "tag": "0004_durable_simulation_sessions",
+      "breakpoints": true
     }
   ]
 }

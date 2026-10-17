@@ -69,9 +69,9 @@
         },
         {
           "id": "C6", "tier": 2, "action": "ABORT PROCESS $ZZKRN.#RPTGEN", "syntax_status": "confirmed",
-          "risk": "high-risk", "requires": ["C1"],
+          "risk": "high-risk", "requires": ["C1"], "one_time": true,
           "output": ["NONSTOP KERNEL - \\BANKPRD1.$ZZKRN.#RPTGEN ABORTED", "CPUs 4-6 freed; payment load rebalancing."],
-          "state_change": { "cpuBusy": [62, 60, 64, 0, 78, 78, 78, 63], "avgResponse": 280, "queue": 500 },
+          "state_change": { "cpuBusy": [62, 60, 64, 0, 58, 60, 57, 63], "avgResponse": 280, "queue": 500, "tps": 1420 },
           "risk_text": "The report generator stops and in-progress reports are lost; the business must re-run them later."
         },
         {
@@ -99,10 +99,10 @@
         }
       ],
       "timeEvents": [
-        { "afterOption": "C3", "afterMinutes": 45, "set": { "hardwareRepaired": true }, "message": "Engineer replaced the faulty hardware" }
+        { "afterOption": "C3", "afterMinutes": 45, "set": { "hardwareRepaired": true }, "maintenanceCompletion": { "cpuDown": null, "cpuBusy": [65, 63, 66, 65, 64, 66, 63, 65], "avgResponse": 130, "queue": 80, "unprotected": 0, "redundancy": "FULL", "tps": 1880 }, "message": "Engineer replaced the faulty hardware" }
       ],
       "endStates": {
-        "RESOLVED": "avgResponse <= 300 AND unprotected = 0",
+        "RESOLVED": "avgResponse <= 300 AND unprotected = 0 AND cpuDown = null AND redundancy FULL AND tps > 0",
         "STABLE_AT_RISK": "avgResponse <= 300 AND unprotected > 0 (decision: accept the risk window or continue)",
         "STALEMATE": "all tier 0-1 options done AND avgResponse > 300"
       }

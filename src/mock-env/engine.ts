@@ -1,6 +1,6 @@
 import type { CommandResult, SystemState } from "@/adapters/types";
 import { COMMANDS, matchCommand } from "./commands.config";
-import { SCENARIOS, type Scenario } from "./scenarios/payment-slowdown";
+import { SCENARIOS, paymentSlowdown, type Scenario } from "./scenarios/payment-slowdown";
 
 // Stateful simulation engine. Pure TS, no I/O — runs inside the mock-env backend.
 interface EnvState {
@@ -13,7 +13,7 @@ interface EnvState {
 let s: EnvState = fresh("payment-slowdown");
 
 function fresh(id: string): EnvState {
-  return { scenario: SCENARIOS[id], tick: 0, remediated: false, startedAt: Date.now() - 12 * 60_000 };
+  return { scenario: SCENARIOS[id] ?? paymentSlowdown, tick: 0, remediated: false, startedAt: Date.now() - 12 * 60_000 };
 }
 
 export function resetScenario(id = "payment-slowdown") {

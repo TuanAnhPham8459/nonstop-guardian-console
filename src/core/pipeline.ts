@@ -32,21 +32,23 @@ export function createPipeline(a: Adapters) {
   return {
     async ask(question: string, host: HostBridge): Promise<ModelResponse> {
       a.audit.log({ actor: "operator", event_type: "question", question });
-      const res = await a.model.complete({ question, state: host.getSessionContext() });
+      const res = await a.model.complete({ question, state: host.getSessionContext(), kind: "ask" });
       logResponse(res, question);
       return res;
     },
 
     // Assistant speaks first at scenario start. Only read-only commands are kept (enforced here, not by the model).
     async proactive(host: HostBridge): Promise<ModelResponse> {
-      const q =
-        "Proactive briefing at scenario start: summarize what is happening (CPU 3 failure, load shifting) and propose ONLY read-only diagnostic commands to check first.";
-      let res = await a.model.complete({ question: q, state: host.getSessionContext() });
+      const ctx = host.getSessionContext();
+      const sc = (ctx.state as { scenario?: { opener: string; label: string } } | undefined)?.scenario;
+      const opener = sc?.opener ?? PROACTIVE_OPENER;
+      const q = `Proactive briefing at scenario start (${sc?.label ?? "CPU failure"}): summarize what is happening and propose ONLY read-only diagnostic commands to check first.`;
+      let res = await a.model.complete({ question: q, state: ctx, kind: "proactive" });
       if (res.ok) {
         const dropped = res.proposed_commands.filter((c) => c.risk !== "read-only");
         res = {
           ...res,
-          explanation: `${PROACTIVE_OPENER}\n\n${res.explanation}`,
+          explanation: `${opener}\n\n${res.explanation}`,
           proposed_commands: res.proposed_commands.filter((c) => c.risk === "read-only"),
           blocked: [...res.blocked, ...dropped.map((c) => ({ command: c.command, reason: "Proactive mode proposes read-only commands only" }))],
         };
@@ -80,6 +82,8 @@ export function createPipeline(a: Adapters) {
       const res = await a.model.complete({
         question: `Interpret this output of "${cmd}" for the operator. Explain what it means for the incident and suggest next steps (propose follow-up commands only if useful).\n${output.join("\n")}`,
         state: host.getSessionContext(),
+        kind: "interpret",
+        command: cmd,
       });
       a.audit.log({
         actor: "assistant",

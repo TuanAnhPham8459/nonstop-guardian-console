@@ -20,11 +20,13 @@ export interface CommandResult {
   command: string;
   output: string[];
   exitCode: number;
+  risk?: string;
 }
 
 export interface EnvironmentAdapter {
   runCommand(cmd: string): Promise<CommandResult>;
-  getState(): SystemState;
+  getState(): Promise<SystemState>;
+  reset(): Promise<void>;
 }
 
 export interface KnowledgeHit {

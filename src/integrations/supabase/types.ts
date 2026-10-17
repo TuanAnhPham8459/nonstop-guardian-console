@@ -58,6 +58,7 @@ export type Database = {
       }
       knowledge_notes: {
         Row: {
+          advice: string | null
           cause: string
           contributed_by: string
           created_at: string
@@ -68,6 +69,7 @@ export type Database = {
           what_to_check_first: string
         }
         Insert: {
+          advice?: string | null
           cause?: string
           contributed_by?: string
           created_at?: string
@@ -78,6 +80,7 @@ export type Database = {
           what_to_check_first?: string
         }
         Update: {
+          advice?: string | null
           cause?: string
           contributed_by?: string
           created_at?: string

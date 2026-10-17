@@ -32,6 +32,10 @@ export interface Scenario {
   responseMs: { start: number; peak: number; recovered: number };
   rampTicks: number;
   tps: { degraded: number; recovered: number };
+  queue: { degraded: number; recovered: number }; // pending transactions
+  unprotected: { degraded: number; recovered: number }; // processes without backup
+  redundancy: { degraded: "FULL" | "REDUCED"; recovered: "FULL" | "REDUCED" };
+  fix: "restore_cpu" | "switch_path" | "abort_transaction"; // command that remediates this scenario
   alerts: { time: string; source: string; text: string; level: Level }[];
   recoveredAlert: string;
   restartOutput: string[];
@@ -62,6 +66,10 @@ export const paymentSlowdown: Scenario = {
   responseMs: { start: 120, peak: 900, recovered: 180 },
   rampTicks: 8,
   tps: { degraded: 1420, recovered: 1880 },
+  queue: { degraded: 1840, recovered: 120 },
+  unprotected: { degraded: 3, recovered: 0 },
+  redundancy: { degraded: "REDUCED", recovered: "FULL" },
+  fix: "restore_cpu",
   alerts: [
     { time: "14:02:00", source: "EMS", text: "CPU 3 down — process pairs taking over", level: "crit" },
     { time: "14:02:04", source: "Measure", text: "Load shifted to CPUs 4-7", level: "warn" },
@@ -102,6 +110,10 @@ export const diskDegradation: Scenario = {
   responseMs: { start: 120, peak: 650, recovered: 210 },
   rampTicks: 8,
   tps: { degraded: 1610, recovered: 1840 },
+  queue: { degraded: 960, recovered: 140 },
+  unprotected: { degraded: 0, recovered: 0 },
+  redundancy: { degraded: "REDUCED", recovered: "FULL" },
+  fix: "switch_path",
   alerts: [
     { time: "09:41:12", source: "EMS", text: "$DATA02 primary path down — running on mirror only", level: "crit" },
     { time: "09:41:40", source: "Measure", text: "$DATA02 disk queue length 14 (normal < 2)", level: "warn" },
@@ -151,6 +163,10 @@ export const txnBacklog: Scenario = {
   responseMs: { start: 120, peak: 1400, recovered: 240 },
   rampTicks: 8,
   tps: { degraded: 860, recovered: 1790 },
+  queue: { degraded: 4812, recovered: 640 },
+  unprotected: { degraded: 0, recovered: 0 },
+  redundancy: { degraded: "FULL", recovered: "FULL" },
+  fix: "abort_transaction",
   alerts: [
     { time: "11:15:20", source: "TMF", text: "Audit trail 91% full — overflow threshold near", level: "crit" },
     { time: "11:15:48", source: "Measure", text: "Active transactions 4,812 (normal ~600)", level: "warn" },

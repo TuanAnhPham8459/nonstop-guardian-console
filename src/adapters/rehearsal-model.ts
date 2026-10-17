@@ -11,56 +11,58 @@ const MODE_KEY = "ops-rehearsal-mode";
 const SEEDS: Record<string, { proactive: Seed; ask: Seed }> = {
   "payment-slowdown": {
     proactive: {
-      explanation: "CPU 3 is down and CPUs 4-7 are running near 90% busy. Payment response time is climbing. Confirm CPU state and TMF health before considering any restart.",
+      explanation: "CPU 3 is down and CPUs 4-7 are running near 90% busy. Payment response time is climbing, and 3 processes are running without backup. Confirm process state and TMF health before changing anything.",
       commands: [
-        { command: "SCF STATUS CPU *", reason: "Confirm which CPUs are up and how load is spread", sources: ["KN-001"], confidence: 0.9 },
-        { command: "TMFCOM STATUS TMF", reason: "Check the transaction manager before restarting anything", sources: ["KN-005", "KN-002"], confidence: 0.85 },
+        { command: "STATUS PROCESS $ZZKRN.#*", reason: "Confirm which processes lost their backup after the CPU failure", sources: ["note-01", "note-04"], confidence: 0.9 },
+        { command: "TMFCOM STATUS TMF", reason: "Check the transaction manager before touching payment processes", sources: ["note-03", "note-02"], confidence: 0.85 },
       ],
       uncertainty: "I can't yet tell whether $PAYAUTH is stuck on the overloaded CPUs or just slowed by load.",
     },
     ask: {
-      explanation: "Latency is most likely caused by the CPU 3 failure: its work moved to CPUs 4-7, which are now saturated. A similar past incident was resolved by restarting the payment process pair to rebalance work, after confirming TMF was healthy.",
+      explanation: "Latency is most likely caused by the CPU 3 failure: its work moved to CPUs 4-7, which are now saturated. Once hardware confirms the repair, restoring CPU 3 rebalances the load. Until then, protect the unprotected processes.",
       commands: [
-        { command: "TMFCOM STATUS TMF", reason: "Rule out a TMF problem first", sources: ["KN-005"], confidence: 0.85 },
-        { command: "SCF RESTART PROCESS $PAYAUTH", reason: "Rebalance payment work off the saturated CPUs", sources: ["KN-003", "KN-006"], confidence: 0.6 },
+        { command: "TMFCOM STATUS TMF", reason: "Rule out a TMF problem first", sources: ["note-03"], confidence: 0.85 },
+        { command: "START BACKUP FOR $ZZKRN.#PAYAUTH1 ON CPU 6", reason: "Protect the most critical unprotected process first", sources: ["note-04"], confidence: 0.7 },
+        { command: "RESTORE CPU 3", reason: "Rebalance load once the CPU is repaired", sources: ["note-01", "note-02"], confidence: 0.6 },
       ],
-      uncertainty: "Restarting is disruptive; I'm unsure whether the backup process is healthy.",
+      uncertainty: "Restoring the CPU only helps if the hardware repair is done; I can't see hardware health from here.",
     },
   },
   "disk-degradation": {
     proactive: {
-      explanation: "$DATA02 is running on its mirror only and its queue is growing. Card ledger writes are slowing. Check disk paths and TMF first.",
+      explanation: "$DATA02 is running on its mirror only and its queue is growing. Card ledger writes are slowing. CPUs are all up, so look at disk and path first.",
       commands: [
-        { command: "SCF STATUS DISK $*", reason: "See which volumes lost a path", sources: ["KN-004"], confidence: 0.9 },
-        { command: "TMFCOM STATUS TMF", reason: "Make sure the audit trail volume is not affected", sources: ["KN-002"], confidence: 0.8 },
+        { command: "TMFCOM STATUS DATAVOLS", reason: "See which volumes lost a path", sources: ["note-05", "note-07"], confidence: 0.9 },
+        { command: "TMFCOM STATUS TMF", reason: "Make sure the audit trail volume is not affected", sources: ["note-02"], confidence: 0.8 },
       ],
       uncertainty: "I don't know yet whether the primary path failed in hardware or was taken down.",
     },
     ask: {
-      explanation: "The slowdown follows the loss of $DATA02's primary path: all I/O now goes to one mirror, so requests queue up. Restoring the path is a hardware task; meanwhile, keep monitoring queue length.",
+      explanation: "The slowdown follows the loss of $DATA02's primary path: all I/O now goes to one mirror, so requests queue up. Switching to the alternate path restores speed; redundancy stays reduced until repair.",
       commands: [
-        { command: "SCF STATUS DISK $*", reason: "Watch $DATA02 path state and queue", sources: ["KN-004"], confidence: 0.85 },
-        { command: "MEASCOM ADD CPU *", reason: "Collect evidence before any high-risk action", sources: ["KN-006"], confidence: 0.6 },
+        { command: "TMFCOM STATUS DATAVOLS", reason: "Watch $DATA02 path state and queue", sources: ["note-07"], confidence: 0.85 },
+        { command: "SWITCH STORAGE PATH $DATA02", reason: "Restore speed via the alternate path; repair later", sources: ["note-08"], confidence: 0.7 },
+        { command: "OPEN HARDWARE TICKET CPU 3", reason: "Real repair runs alongside mitigation", sources: ["note-15"], confidence: 0.6 },
       ],
       uncertainty: "If the mirror also fails, the volume goes down; I can't see hardware health from here.",
     },
   },
   "txn-backlog": {
     proactive: {
-      explanation: "The TMF audit trail is 91% full and active transactions are about 8x normal. Payments are slowing sharply. Check TMF and CPUs first.",
+      explanation: "The TMF audit trail is 91% full and active transactions are about 8x normal, while CPUs look normal. Payments are slowing sharply. Find the blocker before adding capacity.",
       commands: [
-        { command: "TMFCOM STATUS TMF", reason: "Confirm audit trail usage and the oldest open transaction", sources: ["KN-002"], confidence: 0.9 },
-        { command: "SCF STATUS CPU *", reason: "Check whether CPU load is the cause or a symptom", sources: ["KN-001"], confidence: 0.75 },
+        { command: "TMFCOM STATUS TRANSACTIONS", reason: "List the longest-running transactions and owners first", sources: ["note-11"], confidence: 0.9 },
+        { command: "TMFCOM STATUS AUDITTRAIL", reason: "Confirm how close the audit trail is to full", sources: ["note-02"], confidence: 0.85 },
       ],
       uncertainty: "I can't tell which application opened the long-running transactions until TMF status is checked.",
     },
     ask: {
-      explanation: "Long-running transactions are holding the audit trail open, so new transactions queue behind them. If TMF shows they belong to $PAYAUTH, restarting it backs them out and lets the backlog drain.",
+      explanation: "Long-running transactions are holding locks and the audit trail open, so new transactions queue behind them. Adding capacity will not fix a lock. If the oldest transaction is a stuck $PAYAUTH one, aborting it lets the backlog drain — but check with the application owner first.",
       commands: [
-        { command: "TMFCOM STATUS TMF", reason: "Identify the oldest transaction owner", sources: ["KN-002", "KN-005"], confidence: 0.85 },
-        { command: "SCF RESTART PROCESS $PAYAUTH", reason: "Back out stuck transactions if $PAYAUTH owns them", sources: ["KN-006"], confidence: 0.55 },
+        { command: "TMFCOM STATUS TRANSACTIONS", reason: "Identify the oldest transaction and its owner", sources: ["note-11", "note-12"], confidence: 0.85 },
+        { command: "ABORT TRANSACTION 4821", reason: "Back out the stuck transaction if the owner confirms it is not legitimate work", sources: ["note-13"], confidence: 0.55 },
       ],
-      uncertainty: "If the audit trail overflows before action, TMF may block new transactions entirely.",
+      uncertainty: "If the audit trail overflows before action, TMF may block new transactions entirely. Restarting TMF would be a last resort.",
     },
   },
 };

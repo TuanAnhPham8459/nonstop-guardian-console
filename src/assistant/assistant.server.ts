@@ -42,7 +42,7 @@ export interface AssistantError {
 }
 
 export function buildSystemPrompt() {
-  const cmds = ALLOWLIST.map((c) => `- ${c.pattern} — ${c.description}${c.group === "simulated" ? " (simulated syntax)" : ""}`).join("\n");
+  const cmds = ALLOWLIST.map((c) => `- ${c.pattern} — ${c.description}${c.syntaxStatus === "illustrative" ? " (simulated syntax)" : ""}`).join("\n");
   return `You are an operations assistant for a SIMULATED HPE NonStop banking system.
 Rules:
 1. You only PROPOSE commands. You NEVER execute anything; a human operator approves and runs commands.
@@ -98,7 +98,7 @@ export function enforce(out: ModelOutput, knownIds: Set<string>): AssistantResul
       risk: v.entry.risk,
       description: v.entry.description,
       blast_radius: v.entry.blastRadius ?? null,
-      simulated: v.entry.group === "simulated",
+      simulated: v.entry.syntaxStatus === "illustrative",
     });
   }
   return { ok: true, explanation: out.explanation, proposed_commands: proposed, blocked, uncertainty: out.uncertainty };

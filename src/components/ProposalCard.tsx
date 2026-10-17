@@ -45,8 +45,10 @@ export function ProposalCard({ cmd, state, disabled, onApprove, onReject, onEdit
       <div className="mb-2 flex items-center justify-between gap-2">
         <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Proposed command</span>
         <span className="flex items-center gap-1.5">
-          {cmd.simulated && (
-            <span className="risk risk-low-risk" title="Illustrative syntax — not verified against HPE NonStop docs">Simulated syntax</span>
+          {cmd.simulated ? (
+            <span className="risk risk-low-risk" title="Invented for the demo — not verified against HPE NonStop docs">Simulated syntax</span>
+          ) : (
+            <span className="risk risk-read-only" title="Names and syntax documented by HPE">Syntax documented</span>
           )}
           <span className={`risk risk-${cmd.risk}`}>{cmd.risk}</span>
         </span>

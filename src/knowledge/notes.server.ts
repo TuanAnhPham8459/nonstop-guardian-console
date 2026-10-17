@@ -30,7 +30,7 @@ function db() {
 export const toNote = (r: NoteRow): KnowledgeNote => ({
   id: r.id,
   title: r.title,
-  body: `Symptoms: ${r.symptoms} Cause: ${r.cause} Check first: ${r.what_to_check_first}`,
+  body: r.advice ?? `Symptoms: ${r.symptoms} Cause: ${r.cause} Check first: ${r.what_to_check_first}`,
   source_type: r.source_type,
   contributed_by: r.contributed_by,
 });
@@ -74,9 +74,10 @@ export async function addExpertNote(n: {
   contributed_by: string;
 }): Promise<{ id: string } | { error: string }> {
   const id = `KN-${Date.now().toString(36).toUpperCase()}`;
+  const advice = `Suspected because: ${n.symptoms} Checked first: ${n.what_to_check_first} Tell the next operator: ${n.cause}`;
   const { error } = await db()
     .from("knowledge_notes")
-    .insert({ ...n, id, source_type: "expert-note" });
+    .insert({ ...n, advice, id, source_type: "expert-note" });
   if (error) {
     console.error("debrief insert failed", error);
     return { error: "Could not save the debrief." };

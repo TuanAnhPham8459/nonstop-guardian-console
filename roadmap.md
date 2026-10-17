@@ -1,5 +1,5 @@
 # Roadmap
-- [ ] Inject fault menu (CPU failure, disk degradation, transaction backlog)
-- [ ] Rehearsal mode toggle (cached assistant replies)
-- [ ] Audit log search bar
-- [ ] Knowledge Base tab (browse notes the AI cites)
+- [x] Inject fault menu (CPU failure, disk degradation, transaction backlog)
+- [x] Rehearsal mode toggle (cached assistant replies)
+- [x] Audit log search bar
+- [x] Knowledge Base tab (browse notes the AI cites)

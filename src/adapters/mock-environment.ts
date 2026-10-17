@@ -5,7 +5,7 @@ import { mockEnvClassify, mockEnvReset, mockEnvRun, mockEnvScenarios, mockEnvSta
 export const mockEnvironment: EnvironmentAdapter = {
   runCommand: (cmd) => mockEnvRun({ data: { command: cmd } }),
   getState: () => mockEnvState(),
-  reset: async (scenario) => { await mockEnvReset({ data: { scenario } }); },
+  reset: async (scenario) => { await mockEnvReset({ data: scenario ? { scenario } : {} }); },
   listScenarios: () => mockEnvScenarios(),
 };
 

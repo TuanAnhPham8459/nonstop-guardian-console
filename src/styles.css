@@ -224,5 +224,10 @@
   .term-block { border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: var(--terminal); }
   .term-block-head { font-family: var(--font-mono); font-size: 10px; padding: 4px 10px; color: var(--muted-foreground); border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: .1em; }
   .term-block pre { font-family: var(--font-mono); font-size: 11px; color: var(--ok); padding: 8px 10px; overflow-x: auto; white-space: pre; }
+  .audit-ev { padding: 1px 6px; border-radius: 3px; border: 1px solid var(--border); }
+  .audit-approved, .audit-output { color: var(--ok); border-color: var(--ok); }
+  .audit-rejected, .audit-blocked, .audit-error { color: var(--crit); border-color: var(--crit); }
+  .audit-question, .audit-debrief { color: var(--warn); border-color: var(--warn); }
+  .audit-proposed, .audit-interpretation, .audit-proactive { color: var(--accent-foreground); border-color: var(--accent-foreground); }
   .note { font-family: var(--font-mono); font-size: 12px; padding: 10px 14px; border-left: 3px solid var(--warn); background: var(--muted); }
 }

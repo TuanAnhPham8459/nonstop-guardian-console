@@ -4,9 +4,9 @@ import type { CheckedCommand, ModelResponse } from "@/adapters/types";
 import { DebriefForm } from "./DebriefForm";
 import { ProposalCard, type ProposalState } from "./ProposalCard";
 import { createPipeline, type HostBridge } from "@/core/pipeline";
-import { mockAudit, serverKnowledge, serverModel } from "@/adapters/mock-services";
+import { dbAudit, serverKnowledge, serverModel } from "@/adapters/mock-services";
 
-const pipeline = createPipeline({ knowledge: serverKnowledge, model: serverModel, audit: mockAudit, policy: serverPolicy });
+const pipeline = createPipeline({ knowledge: serverKnowledge, model: serverModel, audit: dbAudit, policy: serverPolicy });
 
 type Msg =
   | { role: "op" | "ai" | "err"; text: string }
@@ -34,6 +34,18 @@ export function AssistantPanel({ host, onClose }: { host: HostBridge; onClose: (
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => { end.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
 
+  // Proactive mode: assistant speaks first when the scenario starts.
+  const started = useRef(false);
+  useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+    setBusy(true);
+    pipeline.proactive(host).then((res) => {
+      setMsgs((m) => [...m, ...responseToMsgs(res)]);
+      setBusy(false);
+    });
+  }, [host]);
+
   const setProposal = (i: number, patch: Partial<Extract<Msg, { role: "proposal" }>>) =>
     setMsgs((m) => m.map((x, j) => (j === i && x.role === "proposal" ? { ...x, ...patch } : x)));
 
@@ -60,7 +72,7 @@ export function AssistantPanel({ host, onClose }: { host: HostBridge; onClose: (
 
   function reject(i: number, cmd: string) {
     setProposal(i, { state: "rejected" });
-    pipeline.reject(cmd);
+    pipeline.reject(cmd, msgs[i]?.role === "proposal" ? (msgs[i] as Extract<Msg, { role: "proposal" }>).cls.risk : undefined);
   }
 
   // Edited commands are re-classified against the server allowlist; risk never comes from the model.

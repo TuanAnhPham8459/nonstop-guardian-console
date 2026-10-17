@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Debrief } from "@/adapters/types";
+import { executedOptionsFn } from "@/lib/playbooks.functions";
 
 export function DebriefForm({
   incident,

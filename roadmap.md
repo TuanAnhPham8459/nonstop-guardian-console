@@ -7,5 +7,5 @@
 - [x] Real RMXCI commands in allowlist (read-only except SPOOL low-risk)
 - [x] GET STATISTICS output layout with per-scenario fictional numbers
 - [x] Assistant distinguishes lock vs disk problems from stats columns
-- [x] Notes note-16..18 (invented — user said "[paste JSON]" but none was pasted; replace with real JSON when provided)
+- [x] Notes note-16..18 (user's real JSON uploaded and inserted)
 - [x] "Simulated syntax" badge on SCF/TMF command cards; RMXCI footer

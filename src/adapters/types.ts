@@ -20,7 +20,7 @@ export interface CommandResult {
   command: string;
   output: string[];
   exitCode: number;
-  risk?: string;
+  risk?: string | undefined;
 }
 
 export interface EnvironmentAdapter {
@@ -73,12 +73,12 @@ export type AuditEventType =
 export interface AuditEvent {
   actor: "operator" | "assistant" | "system";
   event_type: AuditEventType;
-  question?: string;
-  command?: string;
-  risk?: string;
-  output?: string;
-  interpretation?: string;
-  detail?: string;
+  question?: string | undefined;
+  command?: string | undefined;
+  risk?: string | undefined;
+  output?: string | undefined;
+  interpretation?: string | undefined;
+  detail?: string | undefined;
 }
 export interface AuditRecord extends AuditEvent {
   id: string;

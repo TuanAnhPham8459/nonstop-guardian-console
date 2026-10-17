@@ -8,3 +8,6 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Backend access goes through adapter interfaces in src/adapters/types.ts; core pipeline (src/core) never imports concrete adapters — keeps backends swappable.
+- The assistant panel talks to the host only via HostBridge (getSessionContext, sendCommand) — keeps it a detachable plugin.

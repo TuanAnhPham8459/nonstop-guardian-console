@@ -73,6 +73,7 @@ export function AssistantPanel({ host, onClose }: { host: HostBridge; onClose: (
                 )}
               </div>
             );
+          if (m.role !== "result") return null;
           return (
             <div key={i} className="bubble-ai">
               <div className="mb-1 text-[10px] uppercase tracking-widest text-muted-foreground">Output of {m.cmd}</div>

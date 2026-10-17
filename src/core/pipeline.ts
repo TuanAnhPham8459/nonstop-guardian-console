@@ -28,7 +28,7 @@ export function createPipeline(a: Adapters) {
         context: JSON.stringify(ctx).slice(0, 4000),
         knowledge,
       });
-      a.audit.log({ actor: "assistant", action: "response", detail: res.proposedCommand });
+      a.audit.log({ actor: "assistant", action: "response", detail: res.proposedCommand ?? "" });
       return res;
     },
     async approveAndRun(cmd: string, host: HostBridge): Promise<{ output: string[]; interpretation: string }> {

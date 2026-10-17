@@ -15,6 +15,13 @@
       "when": 1792270370108,
       "tag": "0001_create_audit_log",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792272759877,
+      "tag": "0002_add_advice_to_knowledge_notes",
+      "breakpoints": true
     }
   ]
 }

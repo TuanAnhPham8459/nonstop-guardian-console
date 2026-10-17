@@ -1,4 +1,4 @@
-import type { AuditAdapter, Classification, KnowledgeAdapter, KnowledgeHit, ModelAdapter, ModelResponse, PolicyAdapter } from "@/adapters/types";
+import type { AuditAdapter, Classification, Debrief, KnowledgeAdapter, KnowledgeHit, ModelAdapter, ModelResponse, PolicyAdapter } from "@/adapters/types";
 
 // The plugin <-> host contract. The panel sees nothing else of the host.
 export interface SessionContext {
@@ -31,6 +31,11 @@ export function createPipeline(a: Adapters) {
     },
     classify(cmd: string): Promise<Classification> {
       return a.policy.classify(cmd);
+    },
+    async debrief(d: Debrief) {
+      const r = await a.knowledge.contribute(d);
+      a.audit.log({ actor: "operator", action: "debrief", detail: "id" in r ? r.id : r.error });
+      return r;
     },
     getSource(id: string): Promise<KnowledgeHit | null> {
       return a.knowledge.get(id);

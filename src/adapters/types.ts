@@ -37,6 +37,7 @@ export interface KnowledgeHit {
 export interface KnowledgeAdapter {
   search(query: string): Promise<KnowledgeHit[]>;
   get(id: string): Promise<KnowledgeHit | null>;
+  contribute(d: Debrief): Promise<{ id: string } | { error: string }>;
 }
 
 export interface ModelRequest {
@@ -84,4 +85,12 @@ export type Classification =
 // Server-side allowlist lookup. Risk tier comes from here, never from the ModelAdapter.
 export interface PolicyAdapter {
   classify(cmd: string): Promise<Classification>;
+}
+
+export interface Debrief {
+  incident: string;
+  suspicion: string;
+  checkedFirst: string;
+  adviceNext: string;
+  operator: string;
 }

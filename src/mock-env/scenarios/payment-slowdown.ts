@@ -1,5 +1,25 @@
 // Scenario data. Edit values here to change each story. All data is fictional.
 type Level = "crit" | "warn" | "info";
+
+// One row of RMXCI GET STATISTICS output (fictional values).
+export interface StatsRow {
+  table: string;
+  recordsAccessed: number;
+  recordsUsed: number;
+  diskIOs: number;
+  messageCount: number;
+  messageBytes: number;
+  lockEscl: number;
+  lockWait: number; // ms
+  diskProcBusy: number; // ms
+}
+export interface StatsSnapshot {
+  start: string;
+  end: string;
+  elapsed: string;
+  rows: StatsRow[];
+}
+
 export interface Scenario {
   id: string;
   label: string;
@@ -19,6 +39,8 @@ export interface Scenario {
   disksRecovered?: { vol: string; state: string; path: string }[];
   tmf: { state: string; auditUsed: number; extra?: string[] };
   tmfRecovered?: { state: string; auditUsed: number; extra?: string[] };
+  stats: StatsSnapshot;
+  statsRecovered: StatsSnapshot;
 }
 
 const healthyDisks = [

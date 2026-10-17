@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect } from "react";
 import { serverPolicy } from "@/adapters/mock-environment";
 import type { CheckedCommand, ModelResponse } from "@/adapters/types";
+import { DebriefForm } from "./DebriefForm";
 import { ProposalCard, type ProposalState } from "./ProposalCard";
 import { createPipeline, type HostBridge } from "@/core/pipeline";
 import { mockAudit, serverKnowledge, serverModel } from "@/adapters/mock-services";
@@ -29,6 +30,7 @@ export function AssistantPanel({ host, onClose }: { host: HostBridge; onClose: (
   ]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [debriefOpen, setDebriefOpen] = useState(false);
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => { end.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
 
@@ -78,7 +80,10 @@ export function AssistantPanel({ host, onClose }: { host: HostBridge; onClose: (
           <div className="text-sm font-semibold">Ops Assistant</div>
           <div className="font-mono text-[10px] text-muted-foreground">plugin · bridge: getSessionContext / sendCommand</div>
         </div>
-        <button onClick={onClose} className="btn-ghost" aria-label="Close assistant">✕</button>
+        <div className="flex gap-2">
+          <button onClick={() => setDebriefOpen(true)} className="btn-ghost">Debrief</button>
+          <button onClick={onClose} className="btn-ghost" aria-label="Close assistant">✕</button>
+        </div>
       </header>
       <div className="flex-1 space-y-3 overflow-y-auto p-4">
         {msgs.map((m, i) => {
@@ -118,6 +123,22 @@ export function AssistantPanel({ host, onClose }: { host: HostBridge; onClose: (
         {busy && <div className="font-mono text-xs text-muted-foreground animate-pulse">working…</div>}
         <div ref={end} />
       </div>
+      {debriefOpen && (
+        <DebriefForm
+          incident={(() => {
+            const st = host.getSessionContext().state as { incident?: { title?: string } } | undefined;
+            return st?.incident?.title ?? "Incident";
+          })()}
+          onCancel={() => setDebriefOpen(false)}
+          onSubmit={async (d) => {
+            const r = await pipeline.debrief(d);
+            if ("error" in r) return r.error;
+            setDebriefOpen(false);
+            setMsgs((m) => [...m, { role: "ai", text: `Debrief saved as expert note ${r.id}. Ask a related question and it will be retrieved and cited.` }]);
+            return null;
+          }}
+        />
+      )}
       <form onSubmit={ask} className="flex gap-2 border-t border-border p-3">
         <input
           value={input}

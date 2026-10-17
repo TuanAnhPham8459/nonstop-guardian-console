@@ -2,7 +2,7 @@ import { z } from "zod";
 import { callModel, ModelCallError } from "./model.server";
 import { validateCommand } from "@/mock-env/validate.server";
 import { ALLOWLIST } from "@/mock-env/allowlist.server";
-import { knowledgeIds, type KnowledgeNote } from "@/knowledge/notes.server";
+import type { KnowledgeNote } from "@/knowledge/notes.server";
 
 export const ModelOutputSchema = z.object({
   explanation: z.string(),
@@ -45,7 +45,7 @@ export function buildSystemPrompt() {
   return `You are an operations assistant for a SIMULATED HPE NonStop banking system.
 Rules:
 1. You only PROPOSE commands. You NEVER execute anything; a human operator approves and runs commands.
-2. Cite knowledge note IDs (e.g. "KB-101") in "sources" for every proposed command. Only cite IDs given to you.
+2. Cite knowledge note IDs (e.g. "KN-001") in "sources" for every proposed command. Only cite IDs given to you.
 3. State clearly what you are unsure of in "uncertainty".
 4. NEVER invent commands. Propose only commands from this allowlist, copied exactly:
 ${cmds}
@@ -61,7 +61,7 @@ Current system state (JSON):
 ${JSON.stringify(state).slice(0, 6000)}
 
 Knowledge notes:
-${notes.map((n) => `[${n.id}] ${n.title}: ${n.body}`).join("\n")}`;
+${notes.length ? notes.map((n) => `[${n.id}] (${n.source_type}, ${n.contributed_by}) ${n.title}: ${n.body}`).join("\n") : "(no relevant notes found)"}`;
 }
 
 function parse(raw: string): ModelOutput | null {
@@ -75,7 +75,7 @@ function parse(raw: string): ModelOutput | null {
 }
 
 // Enforce allowlist, source existence and risk tier in code.
-export function enforce(out: ModelOutput, knownIds: Set<string> = knowledgeIds()): AssistantResult {
+export function enforce(out: ModelOutput, knownIds: Set<string>): AssistantResult {
   const proposed: CheckedCommand[] = [];
   const blocked: { command: string; reason: string }[] = [];
   for (const p of out.proposed_commands) {
@@ -102,6 +102,7 @@ export async function runAssistant(
   question: string,
   state: unknown,
   notes: KnowledgeNote[],
+  knownIds: Set<string>,
   model: typeof callModel = callModel,
 ): Promise<AssistantResult | AssistantError> {
   const system = buildSystemPrompt();
@@ -109,7 +110,7 @@ export async function runAssistant(
   try {
     for (let attempt = 0; attempt < 2; attempt++) {
       const parsed = parse(await model(system, user));
-      if (parsed) return enforce(parsed);
+      if (parsed) return enforce(parsed, knownIds);
     }
     return { ok: false, error: "The assistant returned an invalid response twice. No commands were proposed." };
   } catch (e) {

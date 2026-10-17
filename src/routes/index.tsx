@@ -236,6 +236,9 @@ function HostPage() {
               />
             </form>
           </div>
+          <footer className="border-t border-border px-4 py-1.5 text-center font-mono text-[10px] text-muted-foreground">
+            Command formats based on the HPE SQL/MX RMXCI Guide 4.0.1; values are fictional.
+          </footer>
         </main>
 
         {panelOpen && (

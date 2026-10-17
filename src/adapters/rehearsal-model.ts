@@ -109,7 +109,7 @@ export function createRehearsalModel(live: ModelAdapter, policy: PolicyAdapter):
       const cls = await policy.classify(c.command).catch(() => null);
       if (!cls) continue;
       if (!cls.allowed) { blocked.push({ command: c.command, reason: cls.reason }); continue; }
-      proposed.push({ ...(c as CheckedCommand), risk: cls.risk, description: cls.description, blast_radius: cls.blastRadius });
+      proposed.push({ ...(c as CheckedCommand), risk: cls.risk, description: cls.description, blast_radius: cls.blastRadius, simulated: cls.simulated });
     }
     return {
       ok: true,

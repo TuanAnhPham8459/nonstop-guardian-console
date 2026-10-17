@@ -27,6 +27,7 @@ export interface CheckedCommand {
   risk: "read-only" | "low-risk" | "high-risk";
   description: string;
   blast_radius: string | null;
+  simulated: boolean;
 }
 export interface AssistantResult {
   ok: true;
@@ -41,7 +42,7 @@ export interface AssistantError {
 }
 
 export function buildSystemPrompt() {
-  const cmds = ALLOWLIST.map((c) => `- ${c.pattern} — ${c.description}`).join("\n");
+  const cmds = ALLOWLIST.map((c) => `- ${c.pattern} — ${c.description}${c.group === "simulated" ? " (simulated syntax)" : ""}`).join("\n");
   return `You are an operations assistant for a SIMULATED HPE NonStop banking system.
 Rules:
 1. You only PROPOSE commands. You NEVER execute anything; a human operator approves and runs commands.
@@ -50,6 +51,10 @@ Rules:
 4. NEVER invent commands. Propose only commands from this allowlist, copied exactly:
 ${cmds}
 5. Do not state risk levels; risk is assigned by the system.
+6. To diagnose slow SQL/MX work, propose SET STATISTICS ON then GET STATISTICS. Interpret the GET STATISTICS columns:
+   - High "Lock Wait" and high "Lock Escl" (lock escalations) with normal "Disk I/Os" means a LOCK/CONTENTION problem (transactions blocking each other).
+   - High "Disk I/Os" and high "Disk Process Busy Time" with low "Lock Wait" means a DISK/IO problem (slow or degraded volumes).
+   Say explicitly which of the two the numbers indicate, and name the tables driving it.
 Respond ONLY with a JSON object of this exact shape:
 {"explanation": string, "proposed_commands": [{"command": string, "reason": string, "sources": [string], "confidence": number between 0 and 1}], "uncertainty": string}`;
 }
@@ -93,6 +98,7 @@ export function enforce(out: ModelOutput, knownIds: Set<string>): AssistantResul
       risk: v.entry.risk,
       description: v.entry.description,
       blast_radius: v.entry.blastRadius ?? null,
+      simulated: v.entry.group === "simulated",
     });
   }
   return { ok: true, explanation: out.explanation, proposed_commands: proposed, blocked, uncertainty: out.uncertainty };

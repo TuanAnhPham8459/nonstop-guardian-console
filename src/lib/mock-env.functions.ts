@@ -26,6 +26,7 @@ export const mockEnvClassify = createServerFn({ method: "POST" })
       risk: v.entry.risk,
       description: v.entry.description,
       blastRadius: v.entry.blastRadius ?? null,
+      simulated: v.entry.group === "simulated",
     };
   });
 

@@ -57,6 +57,7 @@ export interface CheckedCommand {
   risk: "read-only" | "low-risk" | "high-risk";
   description: string;
   blast_radius: string | null;
+  simulated: boolean; // true = illustrative syntax, unverified against HPE docs
 }
 export type ModelResponse =
   | {
@@ -96,7 +97,7 @@ export interface AuditAdapter {
 
 export type Classification =
   | { allowed: false; reason: string }
-  | { allowed: true; risk: "read-only" | "low-risk" | "high-risk"; description: string; blastRadius: string | null };
+  | { allowed: true; risk: "read-only" | "low-risk" | "high-risk"; description: string; blastRadius: string | null; simulated: boolean };
 // Server-side allowlist lookup. Risk tier comes from here, never from the ModelAdapter.
 export interface PolicyAdapter {
   classify(cmd: string): Promise<Classification>;

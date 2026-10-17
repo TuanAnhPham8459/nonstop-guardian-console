@@ -19,6 +19,9 @@ function fresh(id: string): EnvState {
 
 export function resetScenario(id = "payment-slowdown") {
   s = fresh(id);
+  timing = false;
+  statistics = false;
+  spooling = null;
 }
 
 function responseMs() {
@@ -53,6 +56,28 @@ export function getState(): SystemState {
   };
 }
 
+// RMXCI session flags (reset with the scenario).
+let timing = false;
+let statistics = false;
+let spooling: string | null = null;
+
+function statsOutput(): string[] {
+  const sc = s.scenario;
+  const snap = s.remediated ? sc.statsRecovered : sc.stats;
+  const pad = (v: string | number, w: number) => String(v).padEnd(w);
+  return [
+    `Start Time: ${snap.start}`,
+    `End Time:   ${snap.end}`,
+    `Elapsed Time: ${snap.elapsed}`,
+    "",
+    `${pad("Table Name", 14)}${pad("Records Accessed", 17)}${pad("Records Used", 13)}${pad("Disk I/Os", 10)}${pad("Message Count", 14)}${pad("Message Bytes", 14)}${pad("Lock Escl", 10)}${pad("Lock Wait", 10)}Disk Process Busy Time`,
+    ...snap.rows.map(
+      (r) =>
+        `${pad(r.table, 14)}${pad(r.recordsAccessed, 17)}${pad(r.recordsUsed, 13)}${pad(r.diskIOs, 10)}${pad(r.messageCount, 14)}${pad(r.messageBytes, 14)}${pad(r.lockEscl, 10)}${pad(r.lockWait, 10)}${r.diskProcBusy}`,
+    ),
+  ];
+}
+
 export function runCommand(cmd: string): CommandResult & { risk?: string } {
   const v = validateCommand(cmd);
   const sc = s.scenario;
@@ -60,6 +85,41 @@ export function runCommand(cmd: string): CommandResult & { risk?: string } {
   const def = v.entry;
 
   switch (def.id) {
+    // --- Real RMXCI commands ---
+    case "show_session":
+      return {
+        command: cmd, risk: def.risk, exitCode: 0,
+        output: [
+          "Session attributes:",
+          `  TIMING      ${timing ? "ON" : "OFF"}`,
+          `  STATISTICS  ${statistics ? "ON" : "OFF"}`,
+          `  SPOOL       ${spooling ?? "OFF"}`,
+          `  CATALOG     BANKPRD`,
+          `  SCHEMA      OPS`,
+        ],
+      };
+    case "show_tables":
+      return {
+        command: cmd, risk: def.risk, exitCode: 0,
+        output: ["Tables referenced in this session:", "  BANKPRD.OPS.PAYAUTH_TXN", "  BANKPRD.OPS.CARD_LEDGER", "  BANKPRD.OPS.AUTH_CODES"],
+      };
+    case "show_lasterror":
+      return { command: cmd, risk: def.risk, exitCode: 0, output: ["No error. Last statement completed successfully (SQLCODE 0)."] };
+    case "set_timing":
+      timing = true;
+      return { command: cmd, risk: def.risk, exitCode: 0, output: ["Timing is ON."] };
+    case "set_statistics":
+      statistics = true;
+      return { command: cmd, risk: def.risk, exitCode: 0, output: ["Statistics collection is ON."] };
+    case "get_statistics":
+      if (!statistics)
+        return { command: cmd, risk: def.risk, exitCode: 1, output: ["*** ERROR[15001] Statistics are not enabled. Issue SET STATISTICS ON first."] };
+      return { command: cmd, risk: def.risk, exitCode: 0, output: statsOutput() };
+    case "spool":
+      spooling = "$SPOOL.OUT01";
+      return { command: cmd, risk: def.risk, exitCode: 0, output: ["Spooling to $SPOOL.OUT01 (simulated — no file is written)."] };
+
+    // --- Simulated syntax ---
     case "status_cpu":
       return {
         command: cmd, risk: def.risk, exitCode: 0,
@@ -99,7 +159,12 @@ export function runCommand(cmd: string): CommandResult & { risk?: string } {
   }
 }
 
-export const commandHelp = () => ALLOWLIST.map((c) => `${c.pattern.padEnd(32)} [${c.risk}] ${c.description}`);
+export const commandHelp = () => [
+  "RMXCI commands (HPE SQL/MX RMXCI Guide 4.0.1):",
+  ...ALLOWLIST.filter((c) => c.group === "rmxci").map((c) => `  ${c.pattern.padEnd(32)} [${c.risk}] ${c.description}`),
+  "Simulated syntax (unverified):",
+  ...ALLOWLIST.filter((c) => c.group === "simulated").map((c) => `  ${c.pattern.padEnd(32)} [${c.risk}] ${c.description}`),
+];
 
 export const listScenarios = () => Object.values(SCENARIOS).map((x) => ({ id: x.id, label: x.label, title: x.incident.title }));
 export const currentScenarioId = () => s.scenario.id;

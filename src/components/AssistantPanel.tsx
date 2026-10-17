@@ -92,7 +92,7 @@ export function AssistantPanel({ host, onClose }: { host: HostBridge; onClose: (
     const cls = await pipeline.classify(next);
     if (!cls.allowed) return cls.reason;
     setProposal(i, {
-      cls: { ...prev, command: next.trim().replace(/\s+/g, " ").toUpperCase(), risk: cls.risk, description: cls.description, blast_radius: cls.blastRadius, reason: `${prev.reason} (edited by operator)` },
+      cls: { ...prev, command: next.trim().replace(/\s+/g, " ").toUpperCase(), risk: cls.risk, description: cls.description, blast_radius: cls.blastRadius, simulated: cls.simulated, reason: `${prev.reason} (edited by operator)` },
     });
     return null;
   }

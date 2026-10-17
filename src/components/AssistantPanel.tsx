@@ -1,14 +1,16 @@
 import { useRef, useState, useEffect } from "react";
 import { serverPolicy } from "@/adapters/mock-environment";
-import type { Classification } from "@/adapters/types";
+import type { CheckedCommand } from "@/adapters/types";
 import { createPipeline, type HostBridge } from "@/core/pipeline";
-import { mockAudit, mockKnowledge, mockModel } from "@/adapters/mock-services";
+import { mockAudit, serverKnowledge, serverModel } from "@/adapters/mock-services";
 
-const pipeline = createPipeline({ knowledge: mockKnowledge, model: mockModel, audit: mockAudit, policy: serverPolicy });
+const pipeline = createPipeline({ knowledge: serverKnowledge, model: serverModel, audit: mockAudit, policy: serverPolicy });
 
 type Msg =
-  | { role: "op" | "ai"; text: string }
-  | { role: "proposal"; cmd: string; cls: Extract<Classification, { allowed: true }>; state: "pending" | "approved" | "rejected" }
+  | { role: "op" | "ai" | "err"; text: string }
+  | { role: "uncertain"; text: string }
+  | { role: "blocked"; items: { command: string; reason: string }[] }
+  | { role: "proposal"; cmd: string; cls: CheckedCommand; state: "pending" | "approved" | "rejected" }
   | { role: "result"; cmd: string; output: string[]; text: string };
 
 export function AssistantPanel({ host, onClose }: { host: HostBridge; onClose: () => void }) {
@@ -28,11 +30,15 @@ export function AssistantPanel({ host, onClose }: { host: HostBridge; onClose: (
     setBusy(true);
     setMsgs((m) => [...m, { role: "op", text: q }]);
     const res = await pipeline.ask(q, host);
-    setMsgs((m) => [
-      ...m,
-      { role: "ai", text: res.text },
-      ...(res.proposedCommand && res.classification?.allowed ? [{ role: "proposal" as const, cmd: res.proposedCommand, cls: res.classification, state: "pending" as const }] : []),
-    ]);
+    if (!res.ok) {
+      setMsgs((m) => [...m, { role: "err", text: res.error }]);
+    } else {
+      const add: Msg[] = [{ role: "ai", text: res.explanation }];
+      res.proposed_commands.forEach((c) => add.push({ role: "proposal", cmd: c.command, cls: c, state: "pending" }));
+      if (res.blocked.length) add.push({ role: "blocked", items: res.blocked });
+      if (res.uncertainty) add.push({ role: "uncertain", text: res.uncertainty });
+      setMsgs((m) => [...m, ...add]);
+    }
     setBusy(false);
   }
 
@@ -57,7 +63,17 @@ export function AssistantPanel({ host, onClose }: { host: HostBridge; onClose: (
       <div className="flex-1 space-y-3 overflow-y-auto p-4">
         {msgs.map((m, i) => {
           if (m.role === "op") return <div key={i} className="bubble-op">{m.text}</div>;
-          if (m.role === "ai") return <div key={i} className="bubble-ai">{m.text}</div>;
+          if (m.role === "ai") return <div key={i} className="bubble-ai whitespace-pre-wrap">{m.text}</div>;
+          if (m.role === "err") return <div key={i} className="blast">{m.text}</div>;
+          if (m.role === "uncertain")
+            return <div key={i} className="note"><span className="font-semibold">Unsure: </span>{m.text}</div>;
+          if (m.role === "blocked")
+            return (
+              <div key={i} className="blast font-mono">
+                <div className="mb-1 font-semibold">Blocked by allowlist</div>
+                {m.items.map((b, j) => <div key={j}>✕ {b.command} — {b.reason}</div>)}
+              </div>
+            );
           if (m.role === "proposal")
             return (
               <div key={i} className="proposal">
@@ -66,9 +82,15 @@ export function AssistantPanel({ host, onClose }: { host: HostBridge; onClose: (
                   <span className={`risk risk-${m.cls.risk}`}>{m.cls.risk}</span>
                 </div>
                 <div className="mb-1 text-xs text-muted-foreground">{m.cls.description}</div>
+                <div className="mb-1 text-xs">{m.cls.reason}</div>
+                <div className="mb-1 flex flex-wrap gap-1 font-mono text-[10px] text-muted-foreground">
+                  <span>confidence {Math.round(m.cls.confidence * 100)}%</span>
+                  {m.cls.sources.map((s) => <span key={s} className="risk risk-low-risk">{s}</span>)}
+                  {m.cls.unknown_sources.map((s) => <span key={s} className="risk risk-high-risk" title="Unknown source removed">?{s}</span>)}
+                </div>
                 <code className="block font-mono text-sm text-primary">&gt; {m.cmd}</code>
-                {m.cls.blastRadius && (
-                  <div className="blast mt-2"><span className="font-semibold">Blast radius: </span>{m.cls.blastRadius}</div>
+                {m.cls.blast_radius && (
+                  <div className="blast mt-2"><span className="font-semibold">Blast radius: </span>{m.cls.blast_radius}</div>
                 )}
                 {m.state === "pending" ? (
                   <div className="mt-3 flex gap-2">
@@ -84,7 +106,7 @@ export function AssistantPanel({ host, onClose }: { host: HostBridge; onClose: (
             );
           if (m.role !== "result") return null;
           return (
-            <div key={i} className="bubble-ai">
+            <div key={i} className="bubble-ai whitespace-pre-wrap">
               <div className="mb-1 text-[10px] uppercase tracking-widest text-muted-foreground">Output of {m.cmd}</div>
               <pre className="mb-2 overflow-x-auto rounded bg-background p-2 font-mono text-[11px] text-ok">{m.output.join("\n")}</pre>
               {m.text}

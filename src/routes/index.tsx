@@ -34,7 +34,8 @@ function HostPage() {
   const [locked, setLocked] = useState(false);
   const [state, setState] = useState<SystemState>(Route.useLoaderData());
   const [panelOpen, setPanelOpen] = useState(true);
-  const [now, setNow] = useState(() => Date.now());
+  const [now, setNow] = useState(0);
+  useEffect(() => setNow(Date.now()), []);
   const linesRef = useRef(lines);
   linesRef.current = lines;
   const stateRef = useRef(state);
@@ -120,7 +121,7 @@ function HostPage() {
                 <div className="text-right">
                   <span className="sev">{state.incident.severity}</span>
                   <div className="mt-1 font-mono text-lg text-warn tabular-nums">
-                    {String(mins).padStart(2, "0")}:{String(secs).padStart(2, "0")}
+                    {now ? `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}` : "--:--"}
                   </div>
                   <div className="text-[10px] text-muted-foreground">since first alert</div>
                 </div>

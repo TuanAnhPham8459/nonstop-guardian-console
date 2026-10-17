@@ -1,8 +1,9 @@
 import { z } from "zod";
 import { callModel, ModelCallError } from "./model.server";
-import { validateCommand } from "@/mock-env/validate.server";
+import { validateCommand, normalize } from "@/mock-env/validate.server";
 import { ALLOWLIST } from "@/mock-env/allowlist.server";
 import type { KnowledgeNote } from "@/knowledge/notes.server";
+import { applyPlaybooks, type Playbook } from "@/playbooks/playbooks.server";
 
 export const ModelOutputSchema = z.object({
   explanation: z.string(),
@@ -35,6 +36,7 @@ export interface AssistantResult {
   proposed_commands: CheckedCommand[];
   blocked: { command: string; reason: string }[];
   uncertainty: string;
+  playbooks?: import("@/adapters/types").PlaybookInfluenceInfo | undefined;
 }
 export interface AssistantError {
   ok: false;
@@ -59,14 +61,17 @@ Respond ONLY with a JSON object of this exact shape:
 {"explanation": string, "proposed_commands": [{"command": string, "reason": string, "sources": [string], "confidence": number between 0 and 1}], "uncertainty": string}`;
 }
 
-export function buildUserPrompt(question: string, state: unknown, notes: KnowledgeNote[]) {
+export function buildUserPrompt(question: string, state: unknown, notes: KnowledgeNote[], playbooks: Playbook[] = []) {
   return `Operator question: ${question}
 
 Current system state (JSON):
 ${JSON.stringify(state).slice(0, 6000)}
 
 Knowledge notes:
-${notes.length ? notes.map((n) => `[${n.id}] (${n.source_type}, ${n.contributed_by}) ${n.title}: ${n.body}`).join("\n") : "(no relevant notes found)"}`;
+${notes.length ? notes.map((n) => `[${n.id}] (${n.source_type}, ${n.contributed_by}) ${n.title}: ${n.body}`).join("\n") : "(no relevant notes found)"}
+
+Approved operations playbooks matching the current state (follow their step order when proposing):
+${playbooks.length ? playbooks.map((p) => `[${p.id}] "${p.title}" v${p.version} by ${p.author}, approved by ${p.approved_by}. Steps in order:\n${p.steps.map((s, i) => `  ${i + 1}. ${s.action} — ${s.why}`).join("\n")}\n  Never do: ${p.never_do.join(", ") || "none"}`).join("\n") : "(none)"}`;
 }
 
 function parse(raw: string): ModelOutput | null {
@@ -79,8 +84,14 @@ function parse(raw: string): ModelOutput | null {
   }
 }
 
+export interface PlaybookContext {
+  playbooks: Playbook[]; // approved, trigger-matched only
+  catalog: { id: string; action: string; requires?: string[] | undefined; requiresAny?: string[] | undefined }[];
+  executedIds: Set<string>;
+}
+
 // Enforce allowlist, source existence and risk tier in code.
-export function enforce(out: ModelOutput, knownIds: Set<string>): AssistantResult {
+export function enforce(out: ModelOutput, knownIds: Set<string>, pb?: PlaybookContext): AssistantResult {
   const proposed: CheckedCommand[] = [];
   const blocked: { command: string; reason: string }[] = [];
   for (const p of out.proposed_commands) {
@@ -101,7 +112,24 @@ export function enforce(out: ModelOutput, knownIds: Set<string>): AssistantResul
       simulated: v.entry.syntaxStatus === "illustrative",
     });
   }
-  return { ok: true, explanation: out.explanation, proposed_commands: proposed, blocked, uncertainty: out.uncertainty };
+  const base = { ok: true as const, explanation: out.explanation, blocked, uncertainty: out.uncertainty };
+  if (!pb || pb.playbooks.length === 0) return { ...base, proposed_commands: proposed };
+
+  // Playbook influence: reorder per the followed playbook, attach provenance,
+  // rank never_do last with a warning. Risk tiers and requires rules are untouched.
+  const { commands, influence } = applyPlaybooks(proposed, pb.playbooks, pb.catalog, pb.executedIds);
+  const annotated = commands.map((c) => {
+    const prov = influence?.provenance[normalize(c.command)];
+    const nd = influence?.never_do_warnings[normalize(c.command)];
+    return { ...c, ...(prov ? { playbook: prov } : {}), ...(nd ? { never_do: nd } : {}) };
+  });
+  return {
+    ...base,
+    proposed_commands: annotated,
+    playbooks: influence
+      ? { matched: influence.matched, followed: influence.followed, followed_reason: influence.followed_reason, conflicts: influence.conflicts }
+      : undefined,
+  };
 }
 
 export async function runAssistant(
@@ -110,13 +138,14 @@ export async function runAssistant(
   notes: KnowledgeNote[],
   knownIds: Set<string>,
   model: typeof callModel = callModel,
+  pb?: PlaybookContext,
 ): Promise<AssistantResult | AssistantError> {
   const system = buildSystemPrompt();
-  const user = buildUserPrompt(question, state, notes);
+  const user = buildUserPrompt(question, state, notes, pb?.playbooks ?? []);
   try {
     for (let attempt = 0; attempt < 2; attempt++) {
       const parsed = parse(await model(system, user));
-      if (parsed) return enforce(parsed, knownIds);
+      if (parsed) return enforce(parsed, knownIds, pb);
     }
     return { ok: false, error: "The assistant returned an invalid response twice. No commands were proposed." };
   } catch (e) {

@@ -23,8 +23,18 @@ export const PROACTIVE_OPENER = "CPU 3 went down and load is shifting. Here is w
 export function createPipeline(a: Adapters) {
   function logResponse(res: ModelResponse, question: string) {
     if (!res.ok) return a.audit.log({ actor: "system", event_type: "error", question, detail: res.error });
+    if (res.playbooks && res.playbooks.matched.length > 0) {
+      const p = res.playbooks;
+      a.audit.log({
+        actor: "system", event_type: "proposed", question,
+        detail: `Playbook influence: matched ${p.matched.map((m) => `"${m.title}" v${m.version} (${m.id})`).join(", ")}. ${p.followed_reason ?? ""}${p.conflicts.length ? ` Conflicts: ${p.conflicts.join(" | ")}` : ""}`,
+      });
+    }
     res.proposed_commands.forEach((c) =>
-      a.audit.log({ actor: "assistant", event_type: "proposed", question, command: c.command, risk: c.risk, detail: c.reason }),
+      a.audit.log({
+        actor: "assistant", event_type: "proposed", question, command: c.command, risk: c.risk,
+        detail: `${c.reason}${c.playbook ? ` [playbook "${c.playbook.title}" v${c.playbook.version}, step ${c.playbook.step}, by ${c.playbook.author}, approved by ${c.playbook.approver}]` : ""}${c.never_do ? ` [never_do: ${c.never_do}]` : ""}`,
+      }),
     );
     res.blocked.forEach((b) => a.audit.log({ actor: "system", event_type: "blocked", question, command: b.command, detail: b.reason }));
   }

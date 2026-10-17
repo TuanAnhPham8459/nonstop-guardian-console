@@ -15,11 +15,17 @@ type Msg =
   | { role: "uncertain"; text: string }
   | { role: "blocked"; items: { command: string; reason: string }[] }
   | { role: "proposal"; cls: CheckedCommand; state: ProposalState }
-  | { role: "result"; cmd: string; output: string[] };
+  | { role: "result"; cmd: string; output: string[] }
+  | { role: "playbook"; text: string; conflicts: string[] };
 
 function responseToMsgs(res: ModelResponse): Msg[] {
   if (!res.ok) return [{ role: "err", text: res.error }];
   const add: Msg[] = [{ role: "ai", text: res.explanation }];
+  if (res.playbooks && res.playbooks.matched.length > 0) {
+    const p = res.playbooks;
+    const names = p.matched.map((m) => `"${m.title}" v${m.version}`).join(" and ");
+    add.push({ role: "playbook", text: `Playbook match: ${names}. ${p.followed_reason ?? ""}`, conflicts: p.conflicts });
+  }
   res.proposed_commands.forEach((c) => add.push({ role: "proposal", cls: c, state: "pending" }));
   if (res.blocked.length) add.push({ role: "blocked", items: res.blocked });
   if (res.uncertainty) add.push({ role: "uncertain", text: res.uncertainty });
@@ -124,6 +130,15 @@ export function AssistantPanel({ host, onClose }: { host: HostBridge; onClose: (
           if (m.role === "err") return <div key={i} className="blast">{m.text}</div>;
           if (m.role === "uncertain")
             return <div key={i} className="note"><span className="font-semibold">Unsure: </span>{m.text}</div>;
+          if (m.role === "playbook")
+            return (
+              <div key={i} className="note">
+                <div className="font-semibold">▤ {m.text}</div>
+                {m.conflicts.map((c, j) => (
+                  <div key={j} className="mt-1 text-warn">⚠ {c}</div>
+                ))}
+              </div>
+            );
           if (m.role === "blocked")
             return (
               <div key={i} className="blast font-mono">

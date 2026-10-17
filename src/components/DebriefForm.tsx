@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Debrief } from "@/adapters/types";
+import { executedOptionsFn } from "@/lib/playbooks.functions";
 
 export function DebriefForm({
   incident,
@@ -43,8 +44,26 @@ export function DebriefForm({
         <textarea value={f.adviceNext} onChange={set("adviceNext")} maxLength={2000} rows={2} className="field mt-1 w-full" />
       </label>
       {err && <div className="text-xs text-destructive">{err}</div>}
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <button disabled={saving || !valid} className="btn-approve">{saving ? "Saving…" : "Save as expert note"}</button>
+        <button
+          type="button"
+          disabled={saving || !f.operator.trim()}
+          title="Open the playbook editor prefilled with the options executed in this incident, as a draft"
+          onClick={async () => {
+            setSaving(true);
+            const executed = await executedOptionsFn();
+            sessionStorage.setItem("playbook-prefill", JSON.stringify({
+              title: `Playbook: ${incident}`,
+              author: f.operator.trim(),
+              steps: executed.map((o) => ({ option_id: o.option_id, action: o.action, why: "", check_after: "" })),
+            }));
+            window.location.href = "/playbooks?new=1";
+          }}
+          className="btn-ghost"
+        >
+          Convert to playbook
+        </button>
         <button type="button" onClick={onCancel} className="btn-ghost">Cancel</button>
       </div>
     </form>

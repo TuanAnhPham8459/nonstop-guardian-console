@@ -14,6 +14,7 @@ import { Route as ArchitectureRouteImport } from './routes/architecture'
 import { Route as AuditRouteImport } from './routes/audit'
 import { Route as KnowledgeRouteImport } from './routes/knowledge'
 import { Route as McpRouteImport } from './routes/mcp'
+import { Route as PlaybooksRouteImport } from './routes/playbooks'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 
 const IndexRoute = IndexRouteImport.update({
@@ -41,6 +42,11 @@ const McpRoute = McpRouteImport.update({
   path: '/mcp',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PlaybooksRoute = PlaybooksRouteImport.update({
+  id: '/playbooks',
+  path: '/playbooks',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const Char91DotwellKnownChar93OauthProtectedResourceRoute =
   Char91DotwellKnownChar93OauthProtectedResourceRouteImport.update({
     id: '/.well-known/oauth-protected-resource',
@@ -54,6 +60,7 @@ export interface FileRoutesByFullPath {
   '/audit': typeof AuditRoute
   '/knowledge': typeof KnowledgeRoute
   '/mcp': typeof McpRoute
+  '/playbooks': typeof PlaybooksRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
 }
 export interface FileRoutesByTo {
@@ -62,6 +69,7 @@ export interface FileRoutesByTo {
   '/audit': typeof AuditRoute
   '/knowledge': typeof KnowledgeRoute
   '/mcp': typeof McpRoute
+  '/playbooks': typeof PlaybooksRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
 }
 export interface FileRoutesById {
@@ -71,6 +79,7 @@ export interface FileRoutesById {
   '/audit': typeof AuditRoute
   '/knowledge': typeof KnowledgeRoute
   '/mcp': typeof McpRoute
+  '/playbooks': typeof PlaybooksRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
 }
 export interface FileRouteTypes {
@@ -81,6 +90,7 @@ export interface FileRouteTypes {
     | '/audit'
     | '/knowledge'
     | '/mcp'
+    | '/playbooks'
     | '/.well-known/oauth-protected-resource'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -89,6 +99,7 @@ export interface FileRouteTypes {
     | '/audit'
     | '/knowledge'
     | '/mcp'
+    | '/playbooks'
     | '/.well-known/oauth-protected-resource'
   id:
     | '__root__'
@@ -97,6 +108,7 @@ export interface FileRouteTypes {
     | '/audit'
     | '/knowledge'
     | '/mcp'
+    | '/playbooks'
     | '/.well-known/oauth-protected-resource'
   fileRoutesById: FileRoutesById
 }
@@ -106,6 +118,7 @@ export interface RootRouteChildren {
   AuditRoute: typeof AuditRoute
   KnowledgeRoute: typeof KnowledgeRoute
   McpRoute: typeof McpRoute
+  PlaybooksRoute: typeof PlaybooksRoute
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
 }
 
@@ -146,6 +159,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof McpRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/playbooks': {
+      id: '/playbooks'
+      path: '/playbooks'
+      fullPath: '/playbooks'
+      preLoaderRoute: typeof PlaybooksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/.well-known/oauth-protected-resource': {
       id: '/.well-known/oauth-protected-resource'
       path: '/.well-known/oauth-protected-resource'
@@ -162,6 +182,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuditRoute: AuditRoute,
   KnowledgeRoute: KnowledgeRoute,
   McpRoute: McpRoute,
+  PlaybooksRoute: PlaybooksRoute,
   Char91DotwellKnownChar93OauthProtectedResourceRoute:
     Char91DotwellKnownChar93OauthProtectedResourceRoute,
 }

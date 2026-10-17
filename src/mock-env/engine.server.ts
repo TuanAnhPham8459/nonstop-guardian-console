@@ -387,3 +387,10 @@ export const commandHelp = () => [
 
 export const listScenarios = () => Object.values(SCENARIOS).map((x) => ({ id: x.id, label: x.label, title: x.incident.title }));
 export const currentScenarioId = () => s.scenario.id;
+// Option ids already executed in the current scenario (for playbook conflict checks and debrief prefill).
+export const executedOptionIds = () => [...s.executed];
+// Catalog view of every scenario option's gating rules (for playbook safety checks).
+export const optionGates = () =>
+  Object.values(SCENARIOS).flatMap((sc) =>
+    sc.options.map((o) => ({ id: o.id, action: o.action, requires: o.requires, requiresAny: o.requiresAny })),
+  );

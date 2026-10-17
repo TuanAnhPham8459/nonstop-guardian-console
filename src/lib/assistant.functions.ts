@@ -2,6 +2,9 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { runAssistant } from "@/assistant/assistant.server";
 import { addExpertNote, allNotes, getNote, searchKnowledge } from "@/knowledge/notes.server";
+import { matchingPlaybooks } from "@/playbooks/playbooks.server";
+import { executedOptionIds, optionGates } from "@/mock-env/engine.server";
+import type { SystemState } from "@/adapters/types";
 
 // "assistant" backend function. Proposes only; never executes.
 export const askAssistant = createServerFn({ method: "POST" })
@@ -10,7 +13,12 @@ export const askAssistant = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const { hits, ids } = await searchKnowledge(data.question);
-    return runAssistant(data.question, data.state, hits, ids);
+    // Approved playbooks whose triggers match the current state (drafts never used).
+    const st = data.state as { state?: SystemState } | undefined;
+    const sys = st?.state;
+    const playbooks = sys && Array.isArray(sys.cpus) ? await matchingPlaybooks(sys) : [];
+    const pb = { playbooks, catalog: optionGates(), executedIds: new Set(executedOptionIds()) };
+    return runAssistant(data.question, data.state, hits, ids, undefined, pb);
   });
 
 const snippet = (n: { id: string; title: string; body: string; source_type: string; contributed_by: string }) => ({

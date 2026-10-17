@@ -71,6 +71,23 @@ export const paymentSlowdown: Scenario = {
   restartOutput: ["$PAYAUTH: STOP requested", "$PAYAUTH: backup takeover complete", "$PAYAUTH: restarted on CPU 5, work rebalanced"],
   disks: [...healthyDisks.slice(0, 2), { vol: "$DATA02", state: "STARTED", path: "MIRROR ONLY" }, healthyDisks[3]!],
   tmf: { state: "STARTED", auditUsed: 64 },
+  // CPU failure: moderate lock waits (queued behind fewer CPUs), normal disk I/O.
+  stats: {
+    start: "2026-10-17 14:05:12", end: "2026-10-17 14:05:42", elapsed: "00:00:30",
+    rows: [
+      { table: "PAYAUTH_TXN", recordsAccessed: 48210, recordsUsed: 47980, diskIOs: 3120, messageCount: 96420, messageBytes: 48102400, lockEscl: 12, lockWait: 1840, diskProcBusy: 4210 },
+      { table: "CARD_LEDGER", recordsAccessed: 22400, recordsUsed: 22110, diskIOs: 1980, messageCount: 44800, messageBytes: 22400000, lockEscl: 4, lockWait: 960, diskProcBusy: 2870 },
+      { table: "AUTH_CODES", recordsAccessed: 8150, recordsUsed: 8150, diskIOs: 240, messageCount: 16300, messageBytes: 1630000, lockEscl: 0, lockWait: 45, diskProcBusy: 310 },
+    ],
+  },
+  statsRecovered: {
+    start: "2026-10-17 14:12:01", end: "2026-10-17 14:12:31", elapsed: "00:00:30",
+    rows: [
+      { table: "PAYAUTH_TXN", recordsAccessed: 61900, recordsUsed: 61720, diskIOs: 2980, messageCount: 123800, messageBytes: 61900000, lockEscl: 2, lockWait: 210, diskProcBusy: 2640 },
+      { table: "CARD_LEDGER", recordsAccessed: 28700, recordsUsed: 28540, diskIOs: 1740, messageCount: 57400, messageBytes: 28700000, lockEscl: 1, lockWait: 90, diskProcBusy: 1980 },
+      { table: "AUTH_CODES", recordsAccessed: 10400, recordsUsed: 10400, diskIOs: 230, messageCount: 20800, messageBytes: 2080000, lockEscl: 0, lockWait: 12, diskProcBusy: 280 },
+    ],
+  },
 };
 
 export const diskDegradation: Scenario = {
@@ -103,6 +120,23 @@ export const diskDegradation: Scenario = {
     healthyDisks[3]!,
   ],
   tmf: { state: "STARTED", auditUsed: 58 },
+  // Disk degradation: high Disk I/Os and Disk Process Busy Time, low Lock Wait.
+  stats: {
+    start: "2026-10-17 09:44:20", end: "2026-10-17 09:44:50", elapsed: "00:00:30",
+    rows: [
+      { table: "CARD_LEDGER", recordsAccessed: 24100, recordsUsed: 23890, diskIOs: 41200, messageCount: 48200, messageBytes: 24100000, lockEscl: 3, lockWait: 110, diskProcBusy: 38400 },
+      { table: "PAYAUTH_TXN", recordsAccessed: 39800, recordsUsed: 39610, diskIOs: 18600, messageCount: 79600, messageBytes: 39800000, lockEscl: 5, lockWait: 240, diskProcBusy: 12900 },
+      { table: "AUTH_CODES", recordsAccessed: 7900, recordsUsed: 7900, diskIOs: 310, messageCount: 15800, messageBytes: 1580000, lockEscl: 0, lockWait: 18, diskProcBusy: 340 },
+    ],
+  },
+  statsRecovered: {
+    start: "2026-10-17 09:51:10", end: "2026-10-17 09:51:40", elapsed: "00:00:30",
+    rows: [
+      { table: "CARD_LEDGER", recordsAccessed: 27900, recordsUsed: 27720, diskIOs: 9800, messageCount: 55800, messageBytes: 27900000, lockEscl: 1, lockWait: 70, diskProcBusy: 8600 },
+      { table: "PAYAUTH_TXN", recordsAccessed: 58300, recordsUsed: 58140, diskIOs: 6400, messageCount: 116600, messageBytes: 58300000, lockEscl: 2, lockWait: 130, diskProcBusy: 5100 },
+      { table: "AUTH_CODES", recordsAccessed: 9800, recordsUsed: 9800, diskIOs: 240, messageCount: 19600, messageBytes: 1960000, lockEscl: 0, lockWait: 10, diskProcBusy: 290 },
+    ],
+  },
 };
 
 export const txnBacklog: Scenario = {
@@ -127,6 +161,23 @@ export const txnBacklog: Scenario = {
   disks: healthyDisks,
   tmf: { state: "STARTED", auditUsed: 91, extra: ["Active transactions: 4812", "Oldest transaction age: 00:07:41 ($PAYAUTH)"] },
   tmfRecovered: { state: "STARTED", auditUsed: 74, extra: ["Active transactions: 640", "Oldest transaction age: 00:00:03"] },
+  // Transaction backlog: high Lock Wait and Lock Escl, normal Disk I/Os.
+  stats: {
+    start: "2026-10-17 11:17:30", end: "2026-10-17 11:18:00", elapsed: "00:00:30",
+    rows: [
+      { table: "PAYAUTH_TXN", recordsAccessed: 52100, recordsUsed: 51230, diskIOs: 3340, messageCount: 104200, messageBytes: 52100000, lockEscl: 148, lockWait: 26800, diskProcBusy: 4460 },
+      { table: "CARD_LEDGER", recordsAccessed: 19800, recordsUsed: 19420, diskIOs: 2110, messageCount: 39600, messageBytes: 19800000, lockEscl: 96, lockWait: 17400, diskProcBusy: 2910 },
+      { table: "AUTH_CODES", recordsAccessed: 8400, recordsUsed: 8400, diskIOs: 260, messageCount: 16800, messageBytes: 1680000, lockEscl: 7, lockWait: 380, diskProcBusy: 330 },
+    ],
+  },
+  statsRecovered: {
+    start: "2026-10-17 11:24:15", end: "2026-10-17 11:24:45", elapsed: "00:00:30",
+    rows: [
+      { table: "PAYAUTH_TXN", recordsAccessed: 60400, recordsUsed: 60180, diskIOs: 3100, messageCount: 120800, messageBytes: 60400000, lockEscl: 6, lockWait: 420, diskProcBusy: 2980 },
+      { table: "CARD_LEDGER", recordsAccessed: 27300, recordsUsed: 27110, diskIOs: 1890, messageCount: 54600, messageBytes: 27300000, lockEscl: 3, lockWait: 160, diskProcBusy: 2100 },
+      { table: "AUTH_CODES", recordsAccessed: 10100, recordsUsed: 10100, diskIOs: 240, messageCount: 20200, messageBytes: 2020000, lockEscl: 0, lockWait: 14, diskProcBusy: 280 },
+    ],
+  },
 };
 
 export const SCENARIOS: Record<string, Scenario> = {

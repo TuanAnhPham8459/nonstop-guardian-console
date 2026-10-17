@@ -1,8 +1,9 @@
 import type { AuditAdapter, AuditEvent, KnowledgeAdapter, ModelAdapter } from "./types";
-import { askAssistant, searchKnowledgeFn } from "@/lib/assistant.functions";
+import { askAssistant, getKnowledgeNoteFn, searchKnowledgeFn } from "@/lib/assistant.functions";
 
 export const serverKnowledge: KnowledgeAdapter = {
   search: (query) => searchKnowledgeFn({ data: { query } }),
+  get: (id) => getKnowledgeNoteFn({ data: { id } }),
 };
 
 export const serverModel: ModelAdapter = {

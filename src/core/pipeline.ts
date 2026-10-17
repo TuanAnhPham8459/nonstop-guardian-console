@@ -1,4 +1,4 @@
-import type { AuditAdapter, KnowledgeAdapter, ModelAdapter, ModelResponse, PolicyAdapter } from "@/adapters/types";
+import type { AuditAdapter, Classification, KnowledgeAdapter, KnowledgeHit, ModelAdapter, ModelResponse, PolicyAdapter } from "@/adapters/types";
 
 // The plugin <-> host contract. The panel sees nothing else of the host.
 export interface SessionContext {
@@ -29,21 +29,27 @@ export function createPipeline(a: Adapters) {
       } else a.audit.log({ actor: "system", action: "error", detail: res.error });
       return res;
     },
-    async approveAndRun(cmd: string, host: HostBridge): Promise<{ output: string[]; interpretation: string }> {
+    classify(cmd: string): Promise<Classification> {
+      return a.policy.classify(cmd);
+    },
+    getSource(id: string): Promise<KnowledgeHit | null> {
+      return a.knowledge.get(id);
+    },
+    async approveAndRun(cmd: string, host: HostBridge): Promise<{ output: string[]; interpretation: ModelResponse }> {
       // Re-check the allowlist at execution time, independent of the model.
       const cls = await a.policy.classify(cmd);
       if (!cls.allowed) {
         a.audit.log({ actor: "system", action: "blocked", detail: `${cmd}: ${cls.reason}` });
-        return { output: [], interpretation: `Blocked: ${cls.reason}` };
+        return { output: [], interpretation: { ok: false, error: `Blocked: ${cls.reason}` } };
       }
       a.audit.log({ actor: "operator", action: "approved", detail: cmd });
       const output = await host.sendCommand(cmd);
       const res = await a.model.complete({
-        question: `Interpret this output of "${cmd}" for the operator. Do not propose commands unless clearly needed.\n${output.join("\n")}`,
+        question: `Interpret this output of "${cmd}" for the operator. Explain what it means for the incident and suggest next steps (propose follow-up commands only if useful).\n${output.join("\n")}`,
         state: host.getSessionContext(),
       });
       a.audit.log({ actor: "assistant", action: "interpreted", detail: cmd });
-      return { output, interpretation: res.ok ? `${res.explanation}${res.uncertainty ? `\n\nUnsure: ${res.uncertainty}` : ""}` : res.error };
+      return { output, interpretation: res };
     },
     reject(cmd: string) {
       a.audit.log({ actor: "operator", action: "rejected", detail: cmd });

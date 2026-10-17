@@ -212,5 +212,17 @@
   .risk-low-risk { color: var(--accent-foreground); border-color: var(--accent-foreground); }
   .risk-high-risk { color: var(--crit); border-color: var(--crit); background: color-mix(in oklab, var(--crit) 18%, transparent); }
   .blast { font-size: 12px; padding: 8px 10px; border-radius: 4px; border-left: 3px solid var(--crit); background: color-mix(in oklab, var(--crit) 10%, transparent); }
+  .proposal-high-risk { border-color: var(--crit); background: color-mix(in oklab, var(--crit) 6%, transparent); }
+  .proposal-read-only { border-color: color-mix(in oklab, var(--ok) 60%, transparent); background: color-mix(in oklab, var(--ok) 5%, transparent); }
+  .proposal-low-risk { border-color: var(--accent-foreground); background: color-mix(in oklab, var(--accent-foreground) 6%, transparent); }
+  .cmd-block { font-family: var(--font-mono); font-size: 13px; color: var(--warn); background: var(--terminal); padding: 6px 10px; border-radius: 4px; }
+  .cite { font-family: var(--font-mono); font-size: 10px; padding: 1px 6px; border-radius: 3px; border: 1px solid var(--accent-foreground); color: var(--accent-foreground); text-decoration: underline; text-underline-offset: 2px; }
+  .cite:hover, .cite-open { background: color-mix(in oklab, var(--accent-foreground) 20%, transparent); }
+  .conf-bar { display: inline-block; width: 48px; height: 5px; border-radius: 9999px; background: var(--muted); overflow: hidden; }
+  .conf-bar > span { display: block; height: 100%; background: var(--accent-foreground); }
+  .btn-ghost:disabled { opacity: .45; }
+  .term-block { border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: var(--terminal); }
+  .term-block-head { font-family: var(--font-mono); font-size: 10px; padding: 4px 10px; color: var(--muted-foreground); border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: .1em; }
+  .term-block pre { font-family: var(--font-mono); font-size: 11px; color: var(--ok); padding: 8px 10px; overflow-x: auto; white-space: pre; }
   .note { font-family: var(--font-mono); font-size: 12px; padding: 10px 14px; border-left: 3px solid var(--warn); background: var(--muted); }
 }

@@ -36,6 +36,7 @@ export interface KnowledgeHit {
 }
 export interface KnowledgeAdapter {
   search(query: string): Promise<KnowledgeHit[]>;
+  get(id: string): Promise<KnowledgeHit | null>;
 }
 
 export interface ModelRequest {

@@ -6,3 +6,7 @@
 - [x] Approved command types into host terminal, output returns to panel
 - [x] Architecture tab with diagram + production note
 - [x] Panel toggle off
+- [x] Assistant panel opens at half the screen beside host
+- [ ] knowledge_notes table (Cloud) seeded with 6 notes incl. 2 retired-operator expert notes
+- [ ] Assistant retrieves notes by keyword from DB and cites by id
+- [ ] Debrief button + form saving expert-note; show later question cites it

@@ -3,3 +3,9 @@
 - [x] Rehearsal mode toggle (cached assistant replies)
 - [x] Audit log search bar
 - [x] Knowledge Base tab (browse notes the AI cites)
+- [x] Agent integrations (MCP server + browser tools)
+- [x] Real RMXCI commands in allowlist (read-only except SPOOL low-risk)
+- [x] GET STATISTICS output layout with per-scenario fictional numbers
+- [x] Assistant distinguishes lock vs disk problems from stats columns
+- [x] Notes note-16..18 (invented — user said "[paste JSON]" but none was pasted; replace with real JSON when provided)
+- [x] "Simulated syntax" badge on SCF/TMF command cards; RMXCI footer

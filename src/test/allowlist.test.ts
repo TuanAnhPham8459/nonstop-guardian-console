@@ -19,4 +19,17 @@ describe("command allowlist", () => {
   it("rejects chaining", () => expect(validateCommand("SCF STATUS CPU *; PURGE x").ok).toBe(false));
   it("every high-risk command has a blast radius", () =>
     ALLOWLIST.filter((c) => c.risk === "high-risk").forEach((c) => expect(c.blastRadius).toBeTruthy()));
+  it("RMXCI commands are read-only except SPOOL (low-risk)", () => {
+    const rmxci = ALLOWLIST.filter((c) => c.group === "rmxci");
+    expect(rmxci.length).toBe(7);
+    for (const c of rmxci) expect(c.risk).toBe(c.id === "spool" ? "low-risk" : "read-only");
+  });
+  it("SCF/TMF/MEASCOM commands are in the simulated group", () => {
+    for (const id of ["status_cpu", "status_tmf", "status_disk", "measure_cpu", "restart_process"])
+      expect(ALLOWLIST.find((c) => c.id === id)?.group).toBe("simulated");
+  });
+  it("real RMXCI commands validate", () => {
+    for (const cmd of ["SHOW SESSION", "SHOW TABLES", "SHOW LASTERROR", "SET TIMING ON", "SET STATISTICS ON", "GET STATISTICS"])
+      expect(validateCommand(cmd).ok).toBe(true);
+  });
 });

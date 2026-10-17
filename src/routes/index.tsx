@@ -175,7 +175,7 @@ function HostPage() {
         </main>
 
         {panelOpen && (
-          <div className="fixed inset-x-0 bottom-0 top-9 z-40 md:static md:w-[380px] md:shrink-0 md:border-l md:border-border">
+          <div className="w-1/2 min-w-0 shrink-0 border-l border-border">
             <AssistantPanel host={bridge} onClose={() => setPanelOpen(false)} />
           </div>
         )}

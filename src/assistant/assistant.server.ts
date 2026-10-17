@@ -3,6 +3,7 @@ import { callModel, ModelCallError } from "./model.server";
 import { validateCommand } from "@/mock-env/validate.server";
 import { ALLOWLIST } from "@/mock-env/allowlist.server";
 import type { KnowledgeNote } from "@/knowledge/notes.server";
+import { applyPlaybooks, type Playbook } from "@/playbooks/playbooks.server";
 
 export const ModelOutputSchema = z.object({
   explanation: z.string(),
@@ -83,8 +84,14 @@ function parse(raw: string): ModelOutput | null {
   }
 }
 
+export interface PlaybookContext {
+  playbooks: Playbook[]; // approved, trigger-matched only
+  catalog: { id: string; action: string; requires?: string[]; requiresAny?: string[] }[];
+  executedIds: Set<string>;
+}
+
 // Enforce allowlist, source existence and risk tier in code.
-export function enforce(out: ModelOutput, knownIds: Set<string>): AssistantResult {
+export function enforce(out: ModelOutput, knownIds: Set<string>, pb?: PlaybookContext): AssistantResult {
   const proposed: CheckedCommand[] = [];
   const blocked: { command: string; reason: string }[] = [];
   for (const p of out.proposed_commands) {
@@ -105,7 +112,26 @@ export function enforce(out: ModelOutput, knownIds: Set<string>): AssistantResul
       simulated: v.entry.syntaxStatus === "illustrative",
     });
   }
-  return { ok: true, explanation: out.explanation, proposed_commands: proposed, blocked, uncertainty: out.uncertainty };
+  const base = { ok: true as const, explanation: out.explanation, blocked, uncertainty: out.uncertainty };
+  if (!pb || pb.playbooks.length === 0) return { ...base, proposed_commands: proposed };
+
+  // Playbook influence: reorder per the followed playbook, attach provenance,
+  // rank never_do last with a warning. Risk tiers and requires rules are untouched.
+  const { commands, influence } = applyPlaybooks(proposed, pb.playbooks, pb.catalog, pb.executedIds);
+  const annotated = commands.map((c) => {
+    const prov = influence?.provenance[Object.keys(influence.provenance).find((k) => k === c.command.toUpperCase()) ?? ""] ??
+      influence?.provenance[c.command];
+    const nd = influence?.never_do_warnings[c.command] ??
+      influence?.never_do_warnings[Object.keys(influence.never_do_warnings).find((k) => k === c.command.toUpperCase()) ?? ""];
+    return { ...c, ...(prov ? { playbook: prov } : {}), ...(nd ? { never_do: nd } : {}) };
+  });
+  return {
+    ...base,
+    proposed_commands: annotated,
+    playbooks: influence
+      ? { matched: influence.matched, followed: influence.followed, followed_reason: influence.followed_reason, conflicts: influence.conflicts }
+      : undefined,
+  };
 }
 
 export async function runAssistant(
@@ -114,13 +140,14 @@ export async function runAssistant(
   notes: KnowledgeNote[],
   knownIds: Set<string>,
   model: typeof callModel = callModel,
+  pb?: PlaybookContext,
 ): Promise<AssistantResult | AssistantError> {
   const system = buildSystemPrompt();
-  const user = buildUserPrompt(question, state, notes);
+  const user = buildUserPrompt(question, state, notes, pb?.playbooks ?? []);
   try {
     for (let attempt = 0; attempt < 2; attempt++) {
       const parsed = parse(await model(system, user));
-      if (parsed) return enforce(parsed, knownIds);
+      if (parsed) return enforce(parsed, knownIds, pb);
     }
     return { ok: false, error: "The assistant returned an invalid response twice. No commands were proposed." };
   } catch (e) {

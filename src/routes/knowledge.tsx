@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { SimBanner } from "@/components/SimBanner";
+import { useWebMCP } from "use-webmcp-tool";
+import { runWebMCPTool } from "@/lib/webmcp-telemetry";
 import { listKnowledgeFn } from "@/lib/assistant.functions";
 
 export const Route = createFileRoute("/knowledge")({
@@ -29,6 +31,28 @@ function KnowledgePage() {
   const shown = notes.filter((x) =>
     (type === "all" || x.source_type === type) &&
     (!n || `${x.id} ${x.title} ${x.body} ${x.contributed_by}`.toLowerCase().includes(n)));
+
+  useWebMCP({
+    name: "search_knowledge_notes",
+    description: "Set the Knowledge Base search box and type filter on screen, then list the notes now shown.",
+    annotations: { untrustedContentHint: true },
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Search text; empty string clears it." },
+        source_type: { type: "string", enum: TYPES, description: "Source type filter." },
+      },
+    },
+    execute: (a: { query?: string; source_type?: string }) => runWebMCPTool("search_knowledge_notes", () => {
+      if (a.query !== undefined && typeof a.query !== "string") throw new Error("query must be text.");
+      if (a.source_type !== undefined && !TYPES.includes(a.source_type)) throw new Error("Unknown source type.");
+      const nq = a.query ?? q, nt = a.source_type ?? type;
+      setQ(nq); setType(nt);
+      const n2 = nq.trim().toLowerCase();
+      const list = notes.filter((x) => (nt === "all" || x.source_type === nt) && (!n2 || `${x.id} ${x.title} ${x.body} ${x.contributed_by}`.toLowerCase().includes(n2)));
+      return list.length ? list.map((x) => `${x.id} [${x.source_type}] ${x.title}`).join("\n") : "No notes match.";
+    }),
+  });
 
   return (
     <div className="min-h-screen bg-background text-foreground">

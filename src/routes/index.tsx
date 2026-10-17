@@ -5,6 +5,8 @@ import type { SystemState } from "@/adapters/types";
 import type { HostBridge } from "@/core/pipeline";
 import { SimBanner } from "@/components/SimBanner";
 import { AssistantPanel } from "@/components/AssistantPanel";
+import { useWebMCP } from "use-webmcp-tool";
+import { runWebMCPTool } from "@/lib/webmcp-telemetry";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -87,6 +89,38 @@ function HostPage() {
     setLines([{ kind: "sys", text: `${msg} Incident ${st.incident.id}: ${st.incident.title}` }]);
     setRun((r) => r + 1);
   }
+
+  useWebMCP({
+    name: "read_system_status",
+    description: "Read the simulated incident, alerts, CPU tiles, throughput and response time shown on the host screen.",
+    annotations: { readOnlyHint: true },
+    execute: () => runWebMCPTool("read_system_status", () => {
+      const s = stateRef.current;
+      return [
+        `${s.scenario?.label ?? ""} · ${s.incident.id} ${s.incident.title} (${s.incident.severity})`,
+        `TPS ${s.tps} · response ${s.responseMs} ms`,
+        `CPUs: ${s.cpus.map((c) => `${c.id}:${c.status === "down" ? "DOWN" : `${c.busy}%`}`).join(" ")}`,
+        ...s.incident.alerts.map((a) => `${a.time} ${a.source}: ${a.text}`),
+      ].join("\n");
+    }),
+  });
+
+  useWebMCP({
+    name: "inject_fault",
+    description: "Load a simulated fault scenario, like the Inject fault menu: resets the host screen and restarts the assistant briefing.",
+    enabled: scenarios.length > 0 && !locked,
+    inputSchema: {
+      type: "object",
+      properties: { scenario: { type: "string", enum: scenarios.map((x) => x.id), description: "Scenario id to load." } },
+      required: ["scenario"],
+    },
+    execute: ({ scenario }: { scenario: string }) => runWebMCPTool("inject_fault", async () => {
+      const sc = scenarios.find((x) => x.id === scenario);
+      if (!sc) throw new Error("Unknown scenario.");
+      await inject(sc.id, `Fault injected: ${sc.label}.`);
+      return `Loaded ${sc.label}.`;
+    }),
+  });
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();

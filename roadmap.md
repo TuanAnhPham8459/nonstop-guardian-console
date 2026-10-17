@@ -14,3 +14,4 @@
 - [x] SCF numbered "N->" prompts + "SQL>" RMXCI prompts in terminal
 - [x] Knowledge notes note-01..17 with advice field; "Veteran knowledge" badge + "(fictional)" contributors
 - [x] Per-scenario fix commands (RESTORE CPU 3 / SWITCH STORAGE PATH / ABORT TRANSACTION)
+- [x] Playbooks feature: playbooks table (trigger/steps/never_do/approval), Playbooks tab, assistant influence with provenance + conflicts, debrief "Convert to playbook"

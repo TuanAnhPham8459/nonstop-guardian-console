@@ -35,6 +35,7 @@ export interface AssistantResult {
   proposed_commands: CheckedCommand[];
   blocked: { command: string; reason: string }[];
   uncertainty: string;
+  playbooks?: import("@/adapters/types").PlaybookInfluenceInfo;
 }
 export interface AssistantError {
   ok: false;
@@ -59,14 +60,17 @@ Respond ONLY with a JSON object of this exact shape:
 {"explanation": string, "proposed_commands": [{"command": string, "reason": string, "sources": [string], "confidence": number between 0 and 1}], "uncertainty": string}`;
 }
 
-export function buildUserPrompt(question: string, state: unknown, notes: KnowledgeNote[]) {
+export function buildUserPrompt(question: string, state: unknown, notes: KnowledgeNote[], playbooks: Playbook[] = []) {
   return `Operator question: ${question}
 
 Current system state (JSON):
 ${JSON.stringify(state).slice(0, 6000)}
 
 Knowledge notes:
-${notes.length ? notes.map((n) => `[${n.id}] (${n.source_type}, ${n.contributed_by}) ${n.title}: ${n.body}`).join("\n") : "(no relevant notes found)"}`;
+${notes.length ? notes.map((n) => `[${n.id}] (${n.source_type}, ${n.contributed_by}) ${n.title}: ${n.body}`).join("\n") : "(no relevant notes found)"}
+
+Approved operations playbooks matching the current state (follow their step order when proposing):
+${playbooks.length ? playbooks.map((p) => `[${p.id}] "${p.title}" v${p.version} by ${p.author}, approved by ${p.approved_by}. Steps in order:\n${p.steps.map((s, i) => `  ${i + 1}. ${s.action} — ${s.why}`).join("\n")}\n  Never do: ${p.never_do.join(", ") || "none"}`).join("\n") : "(none)"}`;
 }
 
 function parse(raw: string): ModelOutput | null {

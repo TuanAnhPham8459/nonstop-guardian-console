@@ -36,7 +36,7 @@ export interface AssistantResult {
   proposed_commands: CheckedCommand[];
   blocked: { command: string; reason: string }[];
   uncertainty: string;
-  playbooks?: import("@/adapters/types").PlaybookInfluenceInfo;
+  playbooks?: import("@/adapters/types").PlaybookInfluenceInfo | undefined;
 }
 export interface AssistantError {
   ok: false;

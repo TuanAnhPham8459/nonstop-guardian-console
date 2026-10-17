@@ -72,8 +72,8 @@ export interface CheckedCommand {
   description: string;
   blast_radius: string | null;
   simulated: boolean; // true = illustrative syntax, unverified against HPE docs
-  playbook?: PlaybookProvenance; // set when an approved playbook influenced this recommendation
-  never_do?: string; // warning text when a playbook lists this command under never_do
+  playbook?: PlaybookProvenance | undefined; // set when an approved playbook influenced this recommendation
+  never_do?: string | undefined; // warning text when a playbook lists this command under never_do
 }
 export interface PlaybookInfluenceInfo {
   matched: { id: string; title: string; version: number; author: string; approved_by: string | null }[];
@@ -88,7 +88,7 @@ export type ModelResponse =
       proposed_commands: CheckedCommand[];
       blocked: { command: string; reason: string }[];
       uncertainty: string;
-      playbooks?: PlaybookInfluenceInfo;
+      playbooks?: PlaybookInfluenceInfo | undefined;
     }
   | { ok: false; error: string };
 // Backed by the server "assistant" function (allowlist, sources and risk enforced there).

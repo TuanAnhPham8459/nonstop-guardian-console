@@ -77,7 +77,7 @@ export async function listPlaybooks(): Promise<Playbook[]> {
 }
 
 export async function savePlaybook(p: {
-  id?: string;
+  id?: string | undefined;
   title: string;
   author: string;
   trigger: TriggerCondition[];
@@ -154,6 +154,7 @@ function condMatches(c: TriggerCondition, m: Record<string, number | string>): b
       case "<=": return v <= c.value;
       case "=": return v === c.value;
       case "!=": return v !== c.value;
+      default: return false;
     }
   }
   const eq = String(v).toLowerCase() === String(c.value).toLowerCase();

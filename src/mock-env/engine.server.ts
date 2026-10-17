@@ -38,13 +38,14 @@ export function getState(): SystemState {
   const b = busy();
   const alerts = [...sc.alerts];
   if (s.remediated)
-    alerts.push({ time: "now", source: "APM", text: "Latency recovering after $PAYAUTH restart", level: "info" as never });
+    alerts.push({ time: "now", source: "APM", text: sc.recoveredAlert, level: "info" });
   return {
     node: sc.node,
+    scenario: { id: sc.id, label: sc.label, opener: sc.opener },
     cpus: b.map((v, id) => ({
       id,
       busy: v,
-      status: id === sc.cpuFailure.cpu ? "down" : v >= 85 ? "crit" : v >= 70 ? "warn" : "ok",
+      status: id === sc.cpuFailure?.cpu ? "down" : v >= 85 ? "crit" : v >= 70 ? "warn" : "ok",
     })),
     tps: s.remediated ? sc.tps.recovered : sc.tps.degraded,
     responseMs: responseMs(),
@@ -66,23 +67,26 @@ export function runCommand(cmd: string): CommandResult & { risk?: string } {
           `SCF STATUS CPU ${sc.node}`,
           "CPU  STATE   BUSY%",
           ...busy().map((v, i) =>
-            `${String(i).padEnd(4)} ${(i === sc.cpuFailure.cpu ? "DOWN" : "UP").padEnd(7)} ${i === sc.cpuFailure.cpu ? "--" : v}`),
-          `CPU ${sc.cpuFailure.cpu} DOWN since ${sc.cpuFailure.at}`,
+            `${String(i).padEnd(4)} ${(i === sc.cpuFailure?.cpu ? "DOWN" : "UP").padEnd(7)} ${i === sc.cpuFailure?.cpu ? "--" : v}`),
+          sc.cpuFailure ? `CPU ${sc.cpuFailure.cpu} DOWN since ${sc.cpuFailure.at}` : "All CPUs UP",
         ],
       };
-    case "status_tmf":
+    case "status_tmf": {
+      const t = s.remediated && sc.tmfRecovered ? sc.tmfRecovered : sc.tmf;
       return {
         command: cmd, risk: def.risk, exitCode: 0,
         output: [
-          `TMF Status: ${sc.tmf.state}`,
-          `Audit trail capacity used: ${sc.tmf.auditUsed}%`,
+          `TMF Status: ${t.state}`,
+          `Audit trail capacity used: ${t.auditUsed}%`,
+          ...(t.extra ?? []),
           `Avg payment txn response: ${responseMs()} ms`,
         ],
       };
+    }
     case "status_disk":
       return {
         command: cmd, risk: def.risk, exitCode: 0,
-        output: ["VOLUME     STATE     PATH", ...sc.disks.map((d) => `${d.vol.padEnd(10)} ${d.state.padEnd(9)} ${d.path}`)],
+        output: ["VOLUME     STATE     PATH", ...(s.remediated && sc.disksRecovered ? sc.disksRecovered : sc.disks).map((d) => `${d.vol.padEnd(10)} ${d.state.padEnd(9)} ${d.path}`)],
       };
     case "measure_cpu":
       return { command: cmd, risk: def.risk, exitCode: 0, output: ["MEASCOM: CPU entity added for CPUs 0-7", "Collection running (interval 60s)"] };
@@ -90,9 +94,12 @@ export function runCommand(cmd: string): CommandResult & { risk?: string } {
       s.remediated = true;
       return {
         command: cmd, risk: def.risk, exitCode: 0,
-        output: ["$PAYAUTH: STOP requested", "$PAYAUTH: backup takeover complete", "$PAYAUTH: restarted on CPU 5, work rebalanced"],
+        output: sc.restartOutput,
       };
   }
 }
 
 export const commandHelp = () => ALLOWLIST.map((c) => `${c.pattern.padEnd(32)} [${c.risk}] ${c.description}`);
+
+export const listScenarios = () => Object.values(SCENARIOS).map((x) => ({ id: x.id, label: x.label, title: x.incident.title }));
+export const currentScenarioId = () => s.scenario.id;

@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { runAssistant } from "@/assistant/assistant.server";
-import { addExpertNote, getNote, searchKnowledge } from "@/knowledge/notes.server";
+import { addExpertNote, allNotes, getNote, searchKnowledge } from "@/knowledge/notes.server";
 
 // "assistant" backend function. Proposes only; never executes.
 export const askAssistant = createServerFn({ method: "POST" })
@@ -51,3 +51,6 @@ export const submitDebrief = createServerFn({ method: "POST" })
       contributed_by: `${data.operator} (operator debrief)`,
     }),
   );
+
+// Read-only list of every knowledge note (the playbook the assistant retrieves from).
+export const listKnowledgeFn = createServerFn({ method: "GET" }).handler(async () => allNotes());

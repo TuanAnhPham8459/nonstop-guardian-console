@@ -1,12 +1,5 @@
 # Roadmap
-- [x] Dark ops console design system + simulated banner
-- [x] Host Terminal page (prompt, scrolling output, monitoring tiles: 8 CPUs, TPS, response time, incident + alerts + timer)
-- [x] Collapsible assistant side panel using only getSessionContext / sendCommand
-- [x] Four adapters (Environment, Knowledge, Model, Audit) + mock env + core pipeline
-- [x] Approved command types into host terminal, output returns to panel
-- [x] Architecture tab with diagram + production note
-- [x] Panel toggle off
-- [x] Assistant panel opens at half the screen beside host
-- [x] knowledge_notes table (Cloud) seeded with 6 notes incl. 2 retired-operator expert notes
-- [x] Assistant retrieves notes by keyword from DB and cites by id
-- [x] Debrief button + form saving expert-note; show later question cites it
+- [x] Inject fault menu (CPU failure, disk degradation, transaction backlog)
+- [x] Rehearsal mode toggle (cached assistant replies)
+- [x] Audit log search bar
+- [x] Knowledge Base tab (browse notes the AI cites)

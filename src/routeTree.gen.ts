@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ArchitectureRouteImport } from './routes/architecture'
 import { Route as AuditRouteImport } from './routes/audit'
+import { Route as KnowledgeRouteImport } from './routes/knowledge'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -28,35 +29,44 @@ const AuditRoute = AuditRouteImport.update({
   path: '/audit',
   getParentRoute: () => rootRouteImport,
 } as any)
+const KnowledgeRoute = KnowledgeRouteImport.update({
+  id: '/knowledge',
+  path: '/knowledge',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/architecture': typeof ArchitectureRoute
   '/audit': typeof AuditRoute
+  '/knowledge': typeof KnowledgeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/architecture': typeof ArchitectureRoute
   '/audit': typeof AuditRoute
+  '/knowledge': typeof KnowledgeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/architecture': typeof ArchitectureRoute
   '/audit': typeof AuditRoute
+  '/knowledge': typeof KnowledgeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/architecture' | '/audit'
+  fullPaths: '/' | '/architecture' | '/audit' | '/knowledge'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/architecture' | '/audit'
-  id: '__root__' | '/' | '/architecture' | '/audit'
+  to: '/' | '/architecture' | '/audit' | '/knowledge'
+  id: '__root__' | '/' | '/architecture' | '/audit' | '/knowledge'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ArchitectureRoute: typeof ArchitectureRoute
   AuditRoute: typeof AuditRoute
+  KnowledgeRoute: typeof KnowledgeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -82,6 +92,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuditRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/knowledge': {
+      id: '/knowledge'
+      path: '/knowledge'
+      fullPath: '/knowledge'
+      preLoaderRoute: typeof KnowledgeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -89,6 +106,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ArchitectureRoute: ArchitectureRoute,
   AuditRoute: AuditRoute,
+  KnowledgeRoute: KnowledgeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

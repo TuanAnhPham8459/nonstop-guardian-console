@@ -53,7 +53,9 @@ function HostPage() {
     if (cmd.trim().toLowerCase() === "clear") { setLines([]); return []; }
     const r = await env.runCommand(cmd);
     setLines((l) => [...l, ...r.output.map((t) => ({ kind: (r.exitCode ? "err" : "out") as Line["kind"], text: t }))]);
-    env.getState().then(setState);
+    const st = await env.getState();
+    stateRef.current = st;
+    setState(st);
     return r.output;
   }, []);
 

@@ -17,6 +17,7 @@ export const Route = createFileRoute("/")({
       { name: "twitter:card", content: "summary" },
     ],
   }),
+  loader: () => mockEnvironment.getState(),
   component: HostPage,
 });
 
@@ -31,7 +32,7 @@ function HostPage() {
   ]);
   const [typed, setTyped] = useState("");
   const [locked, setLocked] = useState(false);
-  const [state, setState] = useState<SystemState>(() => env.getState());
+  const [state, setState] = useState<SystemState>(Route.useLoaderData());
   const [panelOpen, setPanelOpen] = useState(true);
   const [now, setNow] = useState(() => Date.now());
   const linesRef = useRef(lines);
@@ -41,7 +42,7 @@ function HostPage() {
   const scroll = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const t = setInterval(() => { setState(env.getState()); setNow(Date.now()); }, 2000);
+    const t = setInterval(() => { env.getState().then(setState); setNow(Date.now()); }, 2000);
     return () => clearInterval(t);
   }, []);
   useEffect(() => { scroll.current?.scrollTo({ top: scroll.current.scrollHeight }); }, [lines, typed]);
@@ -51,6 +52,7 @@ function HostPage() {
     if (cmd.trim().toLowerCase() === "clear") { setLines([]); return []; }
     const r = await env.runCommand(cmd);
     setLines((l) => [...l, ...r.output.map((t) => ({ kind: (r.exitCode ? "err" : "out") as Line["kind"], text: t }))]);
+    env.getState().then(setState);
     return r.output;
   }, []);
 
@@ -91,9 +93,21 @@ function HostPage() {
               <span className="host-label">Simulated host system</span>
               <span className="font-mono text-xs text-muted-foreground">{state.node} · OPS-MON v4.2</span>
             </div>
+            <div className="flex gap-2">
+            <button
+              onClick={async () => {
+                await env.reset();
+                setState(await env.getState());
+                setLines([{ kind: "sys", text: "Scenario 'payment-slowdown' reset." }]);
+              }}
+              className="btn-ghost font-mono text-xs"
+            >
+              ↺ Reset scenario
+            </button>
             <button onClick={() => setPanelOpen((o) => !o)} className="btn-ghost font-mono text-xs">
               {panelOpen ? "Hide assistant ▸" : "◂ Assistant"}
             </button>
+            </div>
           </div>
 
           <div className="grid gap-3 border-b border-border p-3 md:grid-cols-[1.2fr_1fr]">

@@ -11,3 +11,4 @@
 
 - Backend access goes through adapter interfaces in src/adapters/types.ts; core pipeline (src/core) never imports concrete adapters — keeps backends swappable.
 - The assistant panel talks to the host only via HostBridge (getSessionContext, sendCommand) — keeps it a detachable plugin.
+- The simulated NonStop environment lives in src/mock-env (scenario data files + one editable commands config) and is served via server functions in src/lib/mock-env.functions.ts — keeps the simulation server-side and replaceable.

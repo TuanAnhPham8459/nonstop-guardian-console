@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect } from "react";
+import { matchCommand } from "@/mock-env/commands.config";
 import { createPipeline, type HostBridge } from "@/core/pipeline";
 import { mockAudit, mockKnowledge, mockModel } from "@/adapters/mock-services";
 
@@ -59,7 +60,10 @@ export function AssistantPanel({ host, onClose }: { host: HostBridge; onClose: (
           if (m.role === "proposal")
             return (
               <div key={i} className="proposal">
-                <div className="mb-1 text-[10px] uppercase tracking-widest text-muted-foreground">Proposed command</div>
+                <div className="mb-1 flex items-center justify-between text-[10px] uppercase tracking-widest text-muted-foreground">
+                  <span>Proposed command</span>
+                  {matchCommand(m.cmd)?.risk === "high-risk" ? <span className="sev">HIGH RISK</span> : <span className="text-ok">read-only</span>}
+                </div>
                 <code className="block font-mono text-sm text-primary">&gt; {m.cmd}</code>
                 {m.state === "pending" ? (
                   <div className="mt-3 flex gap-2">

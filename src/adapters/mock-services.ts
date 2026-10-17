@@ -20,12 +20,14 @@ export const mockModel: ModelAdapter = {
     if (q.startsWith("interpret:"))
       return { text: "[placeholder] Output received. Interpretation will appear here once the model adapter is connected." };
     if (q.includes("cpu"))
-      return { text: "[placeholder] I'd check per-CPU status first.", proposedCommand: "status cpu" };
-    if (q.includes("queue") || q.includes("pathway") || q.includes("latency"))
-      return { text: "[placeholder] Let's look at the AUTH-SVR serverclass.", proposedCommand: "pathcom $pm; status serverclass auth-svr" };
+      return { text: "[placeholder] I'd check per-CPU status first.", proposedCommand: "SCF STATUS CPU *" };
+    if (q.includes("restart") || q.includes("fix"))
+      return { text: "[placeholder] Restarting $PAYAUTH may rebalance load. HIGH RISK — review before approving.", proposedCommand: "SCF RESTART PROCESS $PAYAUTH" };
+    if (q.includes("disk"))
+      return { text: "[placeholder] Checking disk volumes.", proposedCommand: "SCF STATUS DISK $*" };
     if (q.includes("tmf") || q.includes("audit"))
-      return { text: "[placeholder] Checking TMF state.", proposedCommand: "tmfcom status tmf" };
-    return { text: "[placeholder] No AI logic yet. Try asking about CPUs, queues or TMF.", proposedCommand: "status" };
+      return { text: "[placeholder] Checking TMF state.", proposedCommand: "TMFCOM STATUS TMF" };
+    return { text: "[placeholder] No AI logic yet. Try asking about CPUs, disks, TMF, or a restart.", proposedCommand: "SCF STATUS CPU *" };
   },
 };
 

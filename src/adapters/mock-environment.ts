@@ -3,7 +3,7 @@ import { mockEnvAdvanceTime, mockEnvClassify, mockEnvReset, mockEnvRun, mockEnvS
 
 // EnvironmentAdapter backed by the stateful "mock-env" backend.
 export const mockEnvironment: EnvironmentAdapter = {
-  runCommand: (cmd) => mockEnvRun({ data: { command: cmd } }),
+  runCommand: (cmd, operationId) => mockEnvRun({ data: { command: cmd, operationId } }),
   getState: () => mockEnvState(),
   reset: async (scenario) => { await mockEnvReset({ data: scenario ? { scenario } : {} }); },
   listScenarios: () => mockEnvScenarios(),

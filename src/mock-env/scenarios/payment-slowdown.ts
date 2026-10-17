@@ -67,11 +67,16 @@ export interface Scenario {
   };
   alerts: { time: string; source: string; text: string; level: Level }[];
   options: ScenarioOption[];
-  timeEvents?: { afterOption: string; afterMinutes: number; set: StateChange; message: string }[];
+  timeEvents?: { afterOption: string; afterMinutes: number; set: StateChange; maintenanceCompletion?: StateChange; message: string }[];
   endStates: Record<string, string>;
 }
 
 export const SCENARIOS: Record<string, Scenario> = Object.fromEntries(
   (data.scenarios as Scenario[]).map((s) => [s.id, s]),
 );
-export const defaultScenario = SCENARIOS["cpu-failure"]!;
+function getDefaultScenario(): Scenario {
+  const scenario = (data.scenarios as Scenario[])[0];
+  if (!scenario) throw new Error("Default simulation scenario missing");
+  return scenario;
+}
+export const defaultScenario = getDefaultScenario();

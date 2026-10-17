@@ -137,12 +137,41 @@ export type Database = {
         }
         Relationships: []
       }
+      simulation_sessions: {
+        Row: {
+          owner_hash: string
+          revision: number
+          snapshot: Json
+          updated_at: string
+        }
+        Insert: {
+          owner_hash: string
+          revision?: number
+          snapshot: Json
+          updated_at?: string
+        }
+        Update: {
+          owner_hash?: string
+          revision?: number
+          snapshot?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      commit_simulation: {
+        Args: {
+          p_events: Json
+          p_owner: string
+          p_revision: number
+          p_snapshot: Json
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never

@@ -1,7 +1,9 @@
 import { useState } from "react";
 import type { CheckedCommand, KnowledgeHit } from "@/adapters/types";
+import type { ExecutionState } from "@/lib/conversation-store";
+import { Button } from "@/components/ui/button";
 
-export type ProposalState = "pending" | "running" | "approved" | "rejected";
+export type ProposalState = ExecutionState;
 
 interface Props {
   cmd: CheckedCommand;
@@ -59,8 +61,8 @@ export function ProposalCard({ cmd, state, disabled, onApprove, onReject, onEdit
           <input value={draft} onChange={(e) => setDraft(e.target.value)} className="field w-full font-mono" aria-label="Edit command" />
           {editErr && <div className="text-xs text-destructive">{editErr}</div>}
           <div className="flex gap-2">
-            <button onClick={saveEdit} className="btn-approve">Save</button>
-            <button onClick={() => { setEditing(false); setDraft(cmd.command); setEditErr(null); }} className="btn-ghost">Cancel</button>
+            <Button variant="ghost" size="sm" onClick={saveEdit} className="btn-approve">Save</Button>
+            <Button variant="ghost" size="sm" onClick={() => { setEditing(false); setDraft(cmd.command); setEditErr(null); }} className="btn-ghost">Cancel</Button>
           </div>
         </div>
       ) : (
@@ -86,7 +88,7 @@ export function ProposalCard({ cmd, state, disabled, onApprove, onReject, onEdit
         <span className="mx-1 text-muted-foreground">·</span>
         {cmd.sources.length === 0 && <span className="text-muted-foreground">no sources</span>}
         {cmd.sources.map((s) => (
-          <button key={s} onClick={() => toggleSource(s)} className={`cite ${openSource?.id === s ? "cite-open" : ""}`}>{s}</button>
+          <Button variant="ghost" size="sm" key={s} onClick={() => toggleSource(s)} className={`cite ${openSource?.id === s ? "cite-open" : ""}`}>{s}</Button>
         ))}
         {cmd.unknown_sources.map((s) => (
           <span key={s} className="risk risk-high-risk" title="Unknown source — removed">?{s}</span>
@@ -117,27 +119,29 @@ export function ProposalCard({ cmd, state, disabled, onApprove, onReject, onEdit
           {cmd.risk === "low-risk" && confirming ? (
             <div className="flex flex-wrap items-center gap-2 text-xs">
               <span>Run this low-risk command?</span>
-              <button disabled={disabled} onClick={onApprove} className="btn-approve">Yes, run</button>
-              <button onClick={() => setConfirming(false)} className="btn-ghost">No</button>
+              <Button variant="ghost" size="sm" disabled={disabled} onClick={onApprove} className="btn-approve">Yes, run</Button>
+              <Button variant="ghost" size="sm" onClick={() => setConfirming(false)} className="btn-ghost">No</Button>
             </div>
           ) : (
             <div className="flex flex-wrap gap-2">
-              <button
+              <Button variant="ghost" size="sm"
                 disabled={disabled || !highOk}
                 onClick={() => (cmd.risk === "low-risk" ? setConfirming(true) : onApprove())}
                 className="btn-approve"
               >
                 Approve & Run
-              </button>
-              <button disabled={disabled} onClick={() => setEditing(true)} className="btn-ghost">Edit</button>
-              <button disabled={disabled} onClick={onReject} className="btn-ghost">Reject</button>
+              </Button>
+              <Button variant="ghost" size="sm" disabled={disabled} onClick={() => setEditing(true)} className="btn-ghost">Edit</Button>
+              <Button variant="ghost" size="sm" disabled={disabled} onClick={onReject} className="btn-ghost">Reject</Button>
             </div>
           )}
         </div>
       )}
       {!pending && (
-        <div className={`font-mono text-[11px] ${state === "rejected" ? "text-destructive" : state === "running" ? "text-warn animate-pulse" : "text-ok"}`}>
-          {state === "running" ? "RUNNING…" : state.toUpperCase()}
+        <div className={`font-mono text-[11px] ${state === "rejected" || state === "failed" ? "text-destructive" : state === "succeeded" ? "text-ok" : "text-warn"}`}>
+          {state === "running" ? "RUNNING…" : state.replaceAll("-", " ").toUpperCase()}
+          {state === "uncertain" && <div>Execution unconfirmed. Check terminal and Audit before issuing another command.</div>}
+          {state === "awaiting-second-operator" && <div>A second operator must explicitly issue the command ending in CONFIRMED.</div>}
         </div>
       )}
     </div>

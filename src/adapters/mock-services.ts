@@ -13,10 +13,10 @@ export const serverModel: ModelAdapter = {
 };
 
 // Persists every step to the audit_log table.
-const SESSION_ID = `S-${Date.now().toString(36).toUpperCase()}`;
-export const dbAudit: AuditAdapter = {
+export function createIncidentAudit(sessionId: string): AuditAdapter { return {
   log(e) {
-    void writeAudit({ data: { ...e, session_id: SESSION_ID } }).catch((err) => console.error("audit write failed", err));
+    void writeAudit({ data: { ...e, session_id: sessionId } }).catch((err) => console.error("audit write failed", err));
   },
   list: () => readAudit(),
-};
+}; }
+export const dbAudit = createIncidentAudit("public-demo");

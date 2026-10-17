@@ -4,7 +4,7 @@ import { currentScenarioId, listScenarios } from "@/mock-env/engine.server";
 export default defineTool({
   name: "list_scenarios",
   title: "List fault scenarios",
-  description: "List the simulated fault scenarios available in the console and which one is active.",
+  description: "List the simulated fault scenarios and the public example default. Private browser session selection is not exposed.",
   inputSchema: {},
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   handler: () => {

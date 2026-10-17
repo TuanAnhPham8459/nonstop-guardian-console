@@ -1,4 +1,4 @@
-import type { AuditAdapter, Classification, Debrief, KnowledgeAdapter, KnowledgeHit, ModelAdapter, ModelResponse, PolicyAdapter } from "@/adapters/types";
+import type { AuditAdapter, Classification, CommandResult, Debrief, KnowledgeAdapter, KnowledgeHit, ModelAdapter, ModelResponse, PolicyAdapter } from "@/adapters/types";
 
 // The plugin <-> host contract. The panel sees nothing else of the host.
 export interface SessionContext {
@@ -7,7 +7,7 @@ export interface SessionContext {
 }
 export interface HostBridge {
   getSessionContext(): SessionContext;
-  sendCommand(cmd: string): Promise<string[]>;
+  sendCommand(cmd: string, operationId?: string): Promise<CommandResult>;
 }
 
 export interface Adapters {
@@ -79,22 +79,25 @@ export function createPipeline(a: Adapters) {
     getSource(id: string): Promise<KnowledgeHit | null> {
       return a.knowledge.get(id);
     },
-    async approveAndRun(cmd: string, host: HostBridge): Promise<{ output: string[]; interpretation: ModelResponse }> {
+    async approveAndRun(cmd: string, host: HostBridge, operationId?: string): Promise<{ output: string[]; status: "succeeded" | "failed" | "awaiting-second-operator"; interpretation: ModelResponse }> {
       // Re-check the allowlist at execution time, independent of the model.
       const cls = await a.policy.classify(cmd);
       if (!cls.allowed) {
         a.audit.log({ actor: "system", event_type: "blocked", command: cmd, detail: cls.reason });
-        return { output: [], interpretation: { ok: false, error: `Blocked: ${cls.reason}` } };
+        return { output: [], status: "failed", interpretation: { ok: false, error: `Blocked: ${cls.reason}` } };
       }
       a.audit.log({ actor: "operator", event_type: "approved", command: cmd, risk: cls.risk });
-      const output = await host.sendCommand(cmd);
-      a.audit.log({ actor: "system", event_type: "output", command: cmd, output: output.join("\n") });
-      const res = await a.model.complete({
-        question: `Interpret this output of "${cmd}" for the operator. Explain what it means for the incident and suggest next steps (propose follow-up commands only if useful).\n${output.join("\n")}`,
+      const execution = await host.sendCommand(cmd, operationId);
+      const output = execution.output;
+      const status = execution.status === "awaiting-second-operator" ? execution.status : execution.exitCode === 0 ? "succeeded" : "failed";
+      a.audit.log({ actor: "system", event_type: "output", command: cmd, output: output.join("\n"), detail: `Execution ${status}; exit code ${execution.exitCode}` });
+      let res: ModelResponse;
+      try { res = await a.model.complete({
+        question: `Interpret execution ${status} (exit code ${execution.exitCode}) of "${cmd}". Never describe failure or second-operator waiting as success. Explain next steps.\n${output.join("\n")}`,
         state: host.getSessionContext(),
         kind: "interpret",
         command: cmd,
-      });
+      }); } catch { res = { ok: false, error: "Execution recorded, but assistant interpretation is unavailable." }; }
       a.audit.log({
         actor: "assistant",
         event_type: "interpretation",
@@ -102,7 +105,7 @@ export function createPipeline(a: Adapters) {
         interpretation: res.ok ? `${res.explanation}${res.uncertainty ? `\nUnsure: ${res.uncertainty}` : ""}` : res.error,
       });
       logResponse(res, `(follow-up to ${cmd})`);
-      return { output, interpretation: res };
+      return { output, status, interpretation: res };
     },
     reject(cmd: string, risk?: string) {
       a.audit.log({ actor: "operator", event_type: "rejected", command: cmd, risk });

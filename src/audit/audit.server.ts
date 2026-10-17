@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
-import type { AuditRecord } from "@/adapters/types";
+import type { AuditEvent, AuditRecord } from "@/adapters/types";
 
 type Insert = Database["public"]["Tables"]["audit_log"]["Insert"];
 
@@ -19,7 +19,18 @@ function db() {
   });
 }
 
-export async function appendAudit(row: Insert) {
+export async function appendAudit(e: AuditEvent & { session_id: string }) {
+  const row: Insert = {
+    session_id: e.session_id,
+    actor: e.actor,
+    event_type: e.event_type,
+    question: e.question ?? null,
+    command: e.command ?? null,
+    risk: e.risk ?? null,
+    output: e.output ?? null,
+    interpretation: e.interpretation ?? null,
+    detail: e.detail ?? null,
+  };
   const { error } = await db().from("audit_log").insert(row);
   if (error) console.error("audit insert failed", error);
   return { ok: !error };

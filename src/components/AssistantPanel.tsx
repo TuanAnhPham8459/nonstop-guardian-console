@@ -107,6 +107,7 @@ export function AssistantPanel({ host, onClose }: { host: HostBridge; onClose: (
                 getSource={(id) => pipeline.getSource(id)}
               />
             );
+          if (m.role !== "result") return null;
           return (
             <div key={i} className="term-block">
               <div className="term-block-head">mock-env · {m.cmd}</div>
